@@ -87,7 +87,7 @@ async function get_profiles (req, res) {
           const characters ='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
           let token= ' ';
           const charactersLength = characters.length;
-          for ( let i = 0; i < 15; i++ ) {
+          for ( let i = 0; i < 200; i++ ) {
               token += characters.charAt(Math.floor(Math.random() * charactersLength));
           }
           var today = new Date();
