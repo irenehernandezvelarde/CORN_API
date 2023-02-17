@@ -3,12 +3,24 @@ const fs = require('fs/promises')
 const url = require('url')
 const post = require('./post.js')
 const { v4: uuidv4 } = require('uuid')
+const mysql = require('mysql2')
 
 // Wait 'ms' milliseconds
 function wait (ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
-
+console.log("Phone: "+queryDatabase("SELECT phone from User where phone="+612345678));
+queryDatabase(
+  'CREATE TABLE if not exists Transactions('+
+  'id_transaction integer AUTO_INCREMENT primary key,'+
+  'origin varchar(255),'+
+  'destiny varchar(255),'+
+  'quantity float,'+
+  'token varchar(255) UNIQUE,'+
+  'accepted boolean,'+
+  'TimeSetup date,'+
+  'TimeAccept date'+
+');')
 // Start HTTP server
 const app = express()
 
@@ -17,48 +29,87 @@ const port = process.env.PORT || 3000
 
 // Publish static files from 'public' folder
 app.use(express.static('public'))
-
 // Activate HTTP server
 const httpServer = app.listen(port, appListen)
 function appListen () {
   console.log(`Listening for HTTP queries on: http://localhost:${port}`)
 }
-
 // Set URL rout for POST queries
-app.post('/dades', getDades)
-async function getDades (req, res) {
+app.post('/dades', get_profiles)
+async function get_profiles (req, res) {
   let receivedPOST = await post.getPostObject(req)
   let result = {};
 
-  var textFile = await fs.readFile("./public/consoles/consoles-list.json", { encoding: 'utf8'})
-  var objConsolesList = JSON.parse(textFile)
-
   if (receivedPOST) {
-    if (receivedPOST.type == "consola") {
-      var objFilteredList = objConsolesList.filter((obj) => { return obj.name == receivedPOST.name })
-      await wait(1500)
-      if (objFilteredList.length > 0) {
-        result = { status: "OK", result: objFilteredList[0] }
-      }
-    }
-    if (receivedPOST.type == "marques") {
-      var objBrandsList = objConsolesList.map((obj) => { return obj.brand })
-      await wait(1500)
-      let senseDuplicats = [...new Set(objBrandsList)]
-      result = { status: "OK", result: senseDuplicats.sort() } 
-    }
-    if (receivedPOST.type == "marca") {
-      var objBrandConsolesList = objConsolesList.filter ((obj) => { return obj.brand == receivedPOST.name })
-      await wait(1500)
-      // Ordena les consoles per nom de model
-      objBrandConsolesList.sort((a,b) => { 
-          var textA = a.name.toUpperCase();
-          var textB = b.name.toUpperCase();
-          return (textA < textB) ? -1 : (textA > textB) ? 1 : 0;
-      })
-      result = { status: "OK", result: objBrandConsolesList } 
+    if (receivedPOST.type == "profiles") {
+      var resultado=await queryDatabase("SELECT * from User");
+      result = { status: "OK", result: resultado}
     }
   }
+  app.post('/dades', sincronitzar)
+  async function sincronitzar(){
+    let receivedPOST = await post.getPostObject(req)
+    let result = {};
+
+  if (receivedPOST) {
+      var existingPhone=await queryDatabase("SELECT phone from User where phone="+receivedPOST.phone);
+        if(receivedPOST.phone==existingPhone.phone){
+          var resultado=await queryDatabase("SELECT * from User WHERE phone="+receivedPOST.phone);
+          result={status: "OK",result:resultado}
+        }
+        else{
+          await queryDatabase("INSERT INTO User(phone,name,surname,email,password,token) VALUES("+
+          receivedPOST.phone+",'"+receivedPOST.name+"',"+receivedPOST.surname+"',"+receivedPOST.email+"',"
+          +receivedPOST.password+"');");
+        }
+      }
+  }
+  app.post('/dades', setup_payment)
+  async function setup_payment (req, res) {
+    let receivedPOST = await post.getPostObject(req)
+    let result = {};
+  
+    if (receivedPOST) {
+      if (receivedPOST.type == "setup_payment") {
+        if(receivedPOST.id_destiny.toString().length==0){
+          result = {status:"user_id is required"}
+        }
+        else if(receivedPOST.quantity<0){
+          result = {status:"Wrong amount"}
+        }
+        else{
+          const characters ='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+          let token= ' ';
+          const charactersLength = characters.length;
+          for ( let i = 0; i < 15; i++ ) {
+              token += characters.charAt(Math.floor(Math.random() * charactersLength));
+          }
+          var today = new Date();
+          var dd = today.getDate();
+
+          var mm = today.getMonth()+1; 
+          var yyyy = today.getFullYear();
+          if(dd<10) 
+          {
+              dd='0'+dd;
+          } 
+
+          if(mm<10) 
+          {
+              mm='0'+mm;
+          } 
+          today = mm+'/'+dd+'/'+yyyy;
+          await queryDatabase("INSERT INTO Transaction(origin,destiny,quantity,token,accepted,TimeSetup) "+
+          "values('"+receivedPOST.id_origin+"',"+
+          "'"+receivedPOST.id_destiny+"',"+
+          receivedPOST.quantity+","+
+          "'"+token+"',"+
+          "false,'"+today+"');"
+          );
+        }
+      }
+    }
+}
 
   res.writeHead(200, { 'Content-Type': 'application/json' })
   res.end(JSON.stringify(result))
@@ -151,11 +202,11 @@ function queryDatabase (query) {
 
   return new Promise((resolve, reject) => {
     var connection = mysql.createConnection({
-      host: process.env.MYSQLHOST || "localhost",
-      port: process.env.MYSQLPORT || 3306,
+      host: process.env.MYSQLHOST || "containers-us-west-166.railway.app",
+      port: process.env.MYSQLPORT || 8071,
       user: process.env.MYSQLUSER || "root",
-      password: process.env.MYSQLPASSWORD || "",
-      database: process.env.MYSQLDATABASE || "test"
+      password: process.env.MYSQLPASSWORD || "QQgD4B4nQWHMpoUn8Pgr",
+      database: process.env.MYSQLDATABASE || "railway"
     });
 
     connection.query(query, (error, results) => { 
