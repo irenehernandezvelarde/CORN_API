@@ -45,13 +45,20 @@ async function get_profiles (req, res) {
       var resultado=await queryDatabase("SELECT * from User");
       result = { status: "OK", result: resultado}
     }
+    if (receivedPOST.type == "setup_payment") {
+      setup_payment(req,res);
+    }
+    if(receivedPOST.type == "sync"){
+        sincronitzar(req,res);
+    }
   }
-  app.post('/dades', sincronitzar)
-  async function sincronitzar(){
-    let receivedPOST = await post.getPostObject(req)
+  res.writeHead(200, { 'Content-Type': 'application/json' })
+  res.end(JSON.stringify(result))
+}
+  async function sincronitzar(req,res){
+    let receivedPOST = await post.getPostObject(req,res)
     let result = {};
 
-  if (receivedPOST) {
       var existingPhone=await queryDatabase("SELECT phone from User where phone="+receivedPOST.phone);
         if(receivedPOST.phone==existingPhone.phone){
           var resultado=await queryDatabase("SELECT * from User WHERE phone="+receivedPOST.phone);
@@ -62,15 +69,14 @@ async function get_profiles (req, res) {
           receivedPOST.phone+",'"+receivedPOST.name+"',"+receivedPOST.surname+"',"+receivedPOST.email+"',"
           +receivedPOST.password+"');");
         }
+        res.writeHead(200, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify(result))
       }
-  }
-  app.post('/dades', setup_payment)
   async function setup_payment (req, res) {
     let receivedPOST = await post.getPostObject(req)
     let result = {};
   
-    if (receivedPOST) {
-      if (receivedPOST.type == "setup_payment") {
+      
         if(receivedPOST.id_destiny.toString().length==0){
           result = {status:"user_id is required"}
         }
@@ -106,14 +112,13 @@ async function get_profiles (req, res) {
           "'"+token+"',"+
           "false,'"+today+"');"
           );
+          var resultado = await(queryDatabase("select * from Transaction"))
+          result={status:"Ok",response:resultado}
         }
+        res.writeHead(200, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify(result))
       }
-    }
-}
 
-  res.writeHead(200, { 'Content-Type': 'application/json' })
-  res.end(JSON.stringify(result))
-}
 
 // Run WebSocket server
 const WebSocket = require('ws')
