@@ -9,7 +9,7 @@ const mysql = require('mysql2')
 function wait (ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
-console.log("Phone: "+queryDatabase("SELECT phone from User where phone='"+612345678+"';"));
+console.log("Phone: "+queryDatabase("SELECT * FROM User;"));
 queryDatabase(
   'CREATE TABLE if not exists Transactions('+
   'id_transaction integer AUTO_INCREMENT primary key,'+
@@ -69,63 +69,135 @@ async function get_profiles (req, res) {
           result={status: "OK",result:resultado}
         }
         else{
-          await queryDatabase("INSERT INTO User(phone,name,surname,email,password,token) VALUES("+
-          receivedPOST.phone+",'"+receivedPOST.name+"',"+receivedPOST.surname+"',"+receivedPOST.email+"','"
-          +receivedPOST.password+"');");
+          await queryDatabase("INSERT INTO User(phone,name,surname,email) VALUES("+
+          receivedPOST.phone+",'"+receivedPOST.name+"',"+receivedPOST.surname+"',"+receivedPOST.email+"');");
         }
         res.writeHead(200, { 'Content-Type': 'application/json' })
         res.end(JSON.stringify(result))
       }
-    async function start_payment (req, res) {
-    }
-    async function finish_payment (req, res) {
-    }
   async function setup_payment (req, res) {
+        let receivedPOST = await post.getPostObject(req)
+        let result = {};
+
+            if(receivedPOST.id_destiny.toString().length==0){
+              result = {status:"ERROR",message:"user_id is required"}
+            }
+            else if(receivedPOST.id_origin.toString().length==0){
+              result = {status:"ERROR",message:"user_id is required"}
+            }
+            else if(receivedPOST.quantity<0){
+              result = {status:"ERROR",message:"Wrong amount"}
+            }
+            else{
+              const characters ='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+              let token= ' ';
+              const charactersLength = characters.length;
+              for ( let i = 0; i < 200; i++ ) {
+                  token += characters.charAt(Math.floor(Math.random() * charactersLength));
+              }
+              var today = new Date();
+              var dd = today.getDate();
+              var mm = today.getMonth()+1; 
+              var yyyy = today.getFullYear();
+              if(dd<10) 
+              {
+                  dd='0'+dd;
+              } 
+    
+              if(mm<10) 
+              {
+                  mm='0'+mm;
+              } 
+              var horesMinuts=today.getHours()+":"+today.getMinutes()
+      today = mm+'/'+dd+'/'+yyyy+" "+horesMinuts;
+      await queryDatabase("INSERT INTO Transaction(destiny,quantity,token,accepted,TimeSetup) "+
+      "values('"+receivedPOST.id_destiny+"',"+
+      receivedPOST.quantity+","+
+      "'"+token+"',"+
+      "false,'"+today+"');"
+      );
+      var resultado = await(queryDatabase("select token from Transaction where token='"+token+"';"))
+      result={status:"Ok",response:resultado}
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify(result))
+  }
+  async function start_payment (req, res) {
     let receivedPOST = await post.getPostObject(req)
     let result = {};
-  
-      
-        if(receivedPOST.id_destiny.toString().length==0){
-          result = {status:"user_id is required"}
-        }
-        else if(receivedPOST.quantity<0){
-          result = {status:"Wrong amount"}
-        }
-        else{
-          const characters ='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-          let token= ' ';
-          const charactersLength = characters.length;
-          for ( let i = 0; i < 200; i++ ) {
-              token += characters.charAt(Math.floor(Math.random() * charactersLength));
-          }
-          var today = new Date();
-          var dd = today.getDate();
-          var mm = today.getMonth()+1; 
-          var yyyy = today.getFullYear();
-          if(dd<10) 
-          {
-              dd='0'+dd;
-          } 
+    var cuenta = await(queryDatabase("select count(*) from Transaction where token='"+receivedPOST.transactionToken+"';"))
+    if(receivedPOST.transactionToken.length==0){
+      result = {status:"ERROR",message:"Error token buit"}
+    }
+    else if(cuenta>1){
+      result = {status:"ERROR",message:"Transaccio repetida"}
+    }
+    else{
+      var today = new Date();
+      var dd = today.getDate();
+      var mm = today.getMonth()+1; 
+      var yyyy = today.getFullYear();
+      if(dd<10) 
+      {
+          dd='0'+dd;
+      } 
 
-          if(mm<10) 
-          {
-              mm='0'+mm;
-          } 
-          var horesMinuts=today.getHours()+":"+today.getMinutes()
-          today = mm+'/'+dd+'/'+yyyy+" "+horesMinuts;
-          await queryDatabase("INSERT INTO Transaction(origin,destiny,quantity,token,accepted,TimeSetup) "+
-          "values('"+receivedPOST.id_origin+"',"+
-          "'"+receivedPOST.id_destiny+"',"+
-          receivedPOST.quantity+","+
-          "'"+token+"',"+
-          "false,'"+today+"');"
-          );
-          var resultado = await(queryDatabase("select * from Transaction"))
-          result={status:"Ok",response:resultado}
-        }
-        res.writeHead(200, { 'Content-Type': 'application/json' })
-        res.end(JSON.stringify(result))
+      if(mm<10) 
+      {
+          mm='0'+mm;
+      } 
+      var horesMinuts=today.getHours()+":"+today.getMinutes()
+      today = mm+'/'+dd+'/'+yyyy+" "+horesMinuts;
+      if(receivedPOST.accepted=="true"){
+        await queryDatabase("UPDATE Transaction SET accepted=true TimeAccept='"+today+"' WHERE token='"+receivedPOST.transactionToken+"';");
       }
+      else{
+        await queryDatabase("UPDATE Transaction SET accepted=false TimeAccept='"+today+"' WHERE token='"+receivedPOST.transactionToken+"';");
+      }
+      var resultado = await(queryDatabase("select * from Transaction where token='"+receivedPOST.token+"';"))
+      result={status:"Ok",transaction_type:"pagament",amount:receivedPOST.quantity,response:resultado}
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify(result))
+  }
+  async function finish_payment (req, res) {
+    let receivedPOST = await post.getPostObject(req)
+    let result = {};
+    var cuenta = await(queryDatabase("select count(*) from Transaction where token='"+receivedPOST.transactionToken+"';"))
+    if(receivedPOST.transactionToken.length==0){
+      result = {status:"ERROR",message:"Error token buit"}
+    }
+    else if(cuenta>1){
+      result = {status:"ERROR",message:"Transaccio repetida"}
+    }
+    else{
+      var today = new Date();
+      var dd = today.getDate();
+      var mm = today.getMonth()+1; 
+      var yyyy = today.getFullYear();
+      if(dd<10) 
+      {
+          dd='0'+dd;
+      } 
+
+      if(mm<10) 
+      {
+          mm='0'+mm;
+      } 
+      var horesMinuts=today.getHours()+":"+today.getMinutes()
+      today = mm+'/'+dd+'/'+yyyy+" "+horesMinuts;
+      if(receivedPOST.accepted=="true"){
+        await queryDatabase("UPDATE Transaction SET accepted=true TimeAccept='"+today+"' WHERE token='"+receivedPOST.transactionToken+"';");
+      }
+      else{
+        await queryDatabase("UPDATE Transaction SET accepted=false TimeAccept='"+today+"' WHERE token='"+receivedPOST.transactionToken+"';");
+      }
+      var resultado = await(queryDatabase("select * from Transaction where token='"+receivedPOST.token+"';"))
+      result={status:"Ok",transaction_type:"pagament",amount:receivedPOST.quantity,response:resultado}
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify(result))
+  }
 
 
 // Run WebSocket server
