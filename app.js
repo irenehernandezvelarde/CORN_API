@@ -50,10 +50,10 @@ async function get_profiles (req, res) {
       sincronitzar(req,res);
     }
     else if(receivedPOST.type == "star_payment"){
-      sincronitzar(req,res);
+      start_payment(req,res);
     }
     else if(receivedPOST.type == "finish_payment"){
-      sincronitzar(req,res);
+      finish_payment(req,res);
     }
   }
   res.writeHead(200, { 'Content-Type': 'application/json' })
@@ -76,6 +76,8 @@ async function get_profiles (req, res) {
         res.writeHead(200, { 'Content-Type': 'application/json' })
         res.end(JSON.stringify(result))
       }
+    async function start_payment (req, res) {
+    }
     async function finish_payment (req, res) {
     }
   async function setup_payment (req, res) {
