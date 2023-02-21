@@ -9,7 +9,7 @@ const mysql = require('mysql2')
 function wait (ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
-console.log("Phone: "+queryDatabase("SELECT phone from User where phone="+612345678));
+console.log("Phone: "+queryDatabase("SELECT phone from User where phone='"+612345678+"';"));
 queryDatabase(
   'CREATE TABLE if not exists Transactions('+
   'id_transaction integer AUTO_INCREMENT primary key,'+
@@ -23,10 +23,8 @@ queryDatabase(
 ');')
 // Start HTTP server
 const app = express()
-
 // Set port number
 const port = process.env.PORT || 3000
-
 // Publish static files from 'public' folder
 app.use(express.static('public'))
 // Activate HTTP server
@@ -45,11 +43,17 @@ async function get_profiles (req, res) {
       var resultado=await queryDatabase("SELECT * from User");
       result = { status: "OK", result: resultado}
     }
-    if (receivedPOST.type == "setup_payment") {
+    else if (receivedPOST.type == "setup_payment") {
       setup_payment(req,res);
     }
-    if(receivedPOST.type == "sync"){
-        sincronitzar(req,res);
+    else if(receivedPOST.type == "sync"){
+      sincronitzar(req,res);
+    }
+    else if(receivedPOST.type == "star_payment"){
+      sincronitzar(req,res);
+    }
+    else if(receivedPOST.type == "finish_payment"){
+      sincronitzar(req,res);
     }
   }
   res.writeHead(200, { 'Content-Type': 'application/json' })
@@ -59,19 +63,21 @@ async function get_profiles (req, res) {
     let receivedPOST = await post.getPostObject(req,res)
     let result = {};
 
-      var existingPhone=await queryDatabase("SELECT phone from User where phone="+receivedPOST.phone);
+      var existingPhone=await queryDatabase("SELECT phone from User where phone='"+receivedPOST.phone+"';");
         if(receivedPOST.phone==existingPhone.phone){
-          var resultado=await queryDatabase("SELECT * from User WHERE phone="+receivedPOST.phone);
+          var resultado=await queryDatabase("SELECT * from User WHERE phone='"+receivedPOST.phone+"';");
           result={status: "OK",result:resultado}
         }
         else{
           await queryDatabase("INSERT INTO User(phone,name,surname,email,password,token) VALUES("+
-          receivedPOST.phone+",'"+receivedPOST.name+"',"+receivedPOST.surname+"',"+receivedPOST.email+"',"
+          receivedPOST.phone+",'"+receivedPOST.name+"',"+receivedPOST.surname+"',"+receivedPOST.email+"','"
           +receivedPOST.password+"');");
         }
         res.writeHead(200, { 'Content-Type': 'application/json' })
         res.end(JSON.stringify(result))
       }
+    async function finish_payment (req, res) {
+    }
   async function setup_payment (req, res) {
     let receivedPOST = await post.getPostObject(req)
     let result = {};
@@ -92,7 +98,6 @@ async function get_profiles (req, res) {
           }
           var today = new Date();
           var dd = today.getDate();
-
           var mm = today.getMonth()+1; 
           var yyyy = today.getFullYear();
           if(dd<10) 
@@ -104,7 +109,8 @@ async function get_profiles (req, res) {
           {
               mm='0'+mm;
           } 
-          today = mm+'/'+dd+'/'+yyyy;
+          var horesMinuts=today.getHours()+":"+today.getMinutes()
+          today = mm+'/'+dd+'/'+yyyy+" "+horesMinuts;
           await queryDatabase("INSERT INTO Transaction(origin,destiny,quantity,token,accepted,TimeSetup) "+
           "values('"+receivedPOST.id_origin+"',"+
           "'"+receivedPOST.id_destiny+"',"+
@@ -207,10 +213,10 @@ function queryDatabase (query) {
 
   return new Promise((resolve, reject) => {
     var connection = mysql.createConnection({
-      host: process.env.MYSQLHOST || "containers-us-west-166.railway.app",
-      port: process.env.MYSQLPORT || 8071,
+      host: process.env.MYSQLHOST || "containers-us-west-69.railway.app",
+      port: process.env.MYSQLPORT || 5930,
       user: process.env.MYSQLUSER || "root",
-      password: process.env.MYSQLPASSWORD || "QQgD4B4nQWHMpoUn8Pgr",
+      password: process.env.MYSQLPASSWORD || "pRGMdm4RlNODkcP4dhWw",
       database: process.env.MYSQLDATABASE || "railway"
     });
 
