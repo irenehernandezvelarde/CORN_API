@@ -85,7 +85,6 @@ async function get_profiles (req, res) {
     }
     else if(receivedPOST.type == "sync"){
       sincronitzar(receivedPOST.phone,receivedPOST.name,receivedPOST.surname,receivedPOST.email)
-      
     }
     else if(receivedPOST.type == "star_payment"){
       start_payment(req,res);
