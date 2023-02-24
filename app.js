@@ -44,44 +44,7 @@ async function get_profiles (req, res) {
       result = { status: "OK", result: resultado}
     }
     else if (receivedPOST.type == "setup_payment") {
-      console.log(receivedPOST.quantity);
-      if(receivedPOST.id_destiny.length==0){
-        result = {status:"ERROR",message:"user_id is required"}
-      }
-      else if(receivedPOST.quantity<0){
-        result = {status:"ERROR",message:"Wrong amount"}
-      }
-      else{
-        const characters ='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-        let token= ' ';
-        const charactersLength = characters.length;
-        for ( let i = 0; i < 200; i++ ) {
-            token += characters.charAt(Math.floor(Math.random() * charactersLength));
-        }
-        var today = new Date();
-        var dd = today.getDate();
-        var mm = today.getMonth()+1; 
-        var yyyy = today.getFullYear();
-        if(dd<10) 
-        {
-            dd='0'+dd;
-        } 
-
-        if(mm<10) 
-        {
-            mm='0'+mm;
-        } 
-        var horesMinuts=today.getHours()+":"+today.getMinutes()+":"+today.getSeconds()
-        today = mm+'/'+dd+'/'+yyyy+" "+horesMinuts;
-        await queryDatabase("INSERT INTO Transactions(destiny,quantity,token,accepted,TimeSetup) "+
-        "values('"+receivedPOST.id_destiny+"',"+
-        receivedPOST.quantity+","+
-        "'"+token+"',"+
-        "false, STR_TO_DATE('"+today+"','%m/%d/%Y %H:%i:%s'));"
-        );
-        var resultado = await(queryDatabase("select token from Transactions where token='"+token+"';"))
-        result={status:"Ok",response:resultado}
-      }
+      setup_payment(receivedPOST.id_destiny,receivedPOST.quantity);
     }
     else if(receivedPOST.type == "sync"){
       sincronitzar(receivedPOST.phone,receivedPOST.name,receivedPOST.surname,receivedPOST.email)
@@ -109,12 +72,12 @@ async function get_profiles (req, res) {
           result={status: "OK",result:resultado}
         }
       }
-  async function setup_payment (req, res) {
-    console.log(receivedPOST.quantity);
-    if(receivedPOST.id_destiny.length==0){
+  async function setup_payment (id_destiny, quantity) {
+    console.log(quantity);
+    if(id_destiny.length==0){
       result = {status:"ERROR",message:"user_id is required"}
     }
-    else if(receivedPOST.quantity<0){
+    else if(quantity<0){
       result = {status:"ERROR",message:"Wrong amount"}
     }
     else{
@@ -140,8 +103,8 @@ async function get_profiles (req, res) {
       var horesMinuts=today.getHours()+":"+today.getMinutes()+":"+today.getSeconds()
       today = mm+'/'+dd+'/'+yyyy+" "+horesMinuts;
       await queryDatabase("INSERT INTO Transactions(destiny,quantity,token,accepted,TimeSetup) "+
-      "values('"+receivedPOST.id_destiny+"',"+
-      receivedPOST.quantity+","+
+      "values('"+id_destiny+"',"+
+      quantity+","+
       "'"+token+"',"+
       "false, STR_TO_DATE('"+today+"','%m/%d/%Y %H:%i:%s'));"
       );
@@ -176,10 +139,10 @@ async function get_profiles (req, res) {
       var horesMinuts=today.getHours()+":"+today.getMinutes()
       today = mm+'/'+dd+'/'+yyyy+" "+horesMinuts;
       if(receivedPOST.accepted=="true"){
-        await queryDatabase("UPDATE Transactions SET accepted=true TimeAccept='"+today+"' WHERE token='"+receivedPOST.transactionToken+"';");
+        await queryDatabase("UPDATE Transactions SET accepted=true TimeAccept=STR_TO_DATE('"+today+"','%m/%d/%Y %H:%i:%s') WHERE token='"+receivedPOST.transactionToken+"';");
       }
       else{
-        await queryDatabase("UPDATE Transactions SET accepted=false TimeAccept='"+today+"' WHERE token='"+receivedPOST.transactionToken+"';");
+        await queryDatabase("UPDATE Transactions SET accepted=false TimeAccept=STR_TO_DATE('"+today+"','%m/%d/%Y %H:%i:%s') WHERE token='"+receivedPOST.transactionToken+"';");
       }
       var resultado = await(queryDatabase("select * from Transactions where token='"+receivedPOST.token+"';"))
       result={status:"Ok",transaction_type:"pagament",amount:receivedPOST.quantity,response:resultado}
@@ -187,11 +150,11 @@ async function get_profiles (req, res) {
     res.writeHead(200, { 'Content-Type': 'application/json' })
     res.end(JSON.stringify(result))
   }
-  async function finish_payment (req, res) {
+  async function finish_payment (transactionToken, accepted) {
     let receivedPOST = await post.getPostObject(req)
     let result = {};
-    var cuenta = await(queryDatabase("select count(*) from Transactions where token='"+receivedPOST.transactionToken+"';"))
-    if(receivedPOST.transactionToken.length==0){
+    var cuenta = await(queryDatabase("select count(*) from Transactions where token='"+transactionToken+"';"))
+    if(transactionToken.length==0){
       result = {status:"ERROR",message:"Error token buit"}
     }
     else if(cuenta>1){
@@ -213,14 +176,14 @@ async function get_profiles (req, res) {
       } 
       var horesMinuts=today.getHours()+":"+today.getMinutes()
       today = mm+'/'+dd+'/'+yyyy+" "+horesMinuts;
-      if(receivedPOST.accepted=="true"){
-        await queryDatabase("UPDATE Transactions SET accepted=true TimeAccept='"+today+"' WHERE token='"+receivedPOST.transactionToken+"';");
+      if(accepted=="true"){
+        await queryDatabase("UPDATE Transactions SET accepted=true TimeAccept='"+today+"' WHERE token='"+transactionToken+"';");
       }
       else{
-        await queryDatabase("UPDATE Transactions SET accepted=false TimeAccept='"+today+"' WHERE token='"+receivedPOST.transactionToken+"';");
+        await queryDatabase("UPDATE Transactions SET accepted=false TimeAccept='"+today+"' WHERE token='"+transactionToken+"';");
       }
-      var resultado = await(queryDatabase("select * from Transactions where token='"+receivedPOST.token+"';"))
-      result={status:"Ok",transaction_type:"pagament",amount:receivedPOST.quantity,response:resultado}
+      var resultado = await(queryDatabase("select * from Transactions where token='"+transactionToken+"';"))
+      result={status:"Ok",transaction_type:"pagament",amount:quantity,response:resultado}
     }
     res.writeHead(200, { 'Content-Type': 'application/json' })
     res.end(JSON.stringify(result))
