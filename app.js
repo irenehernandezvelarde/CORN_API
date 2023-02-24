@@ -9,18 +9,6 @@ const mysql = require('mysql2')
 function wait (ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
-console.log("Phone: "+queryDatabase("SELECT * FROM User;"));
-queryDatabase(
-  'CREATE TABLE if not exists Transactions('+
-  'id_transaction integer AUTO_INCREMENT primary key,'+
-  'origin varchar(255),'+
-  'destiny varchar(255),'+
-  'quantity float,'+
-  'token varchar(255) UNIQUE,'+
-  'accepted boolean,'+
-  'TimeSetup date,'+
-  'TimeAccept date'+
-');')
 // Start HTTP server
 const app = express()
 // Set port number
@@ -44,11 +32,21 @@ async function get_profiles (req, res) {
       result = { status: "OK", result: resultado}
     }
     else if (receivedPOST.type == "setup_payment") {
+      console.log(receivedPOST.id_destiny);
       setup_payment(receivedPOST.id_destiny,receivedPOST.quantity);
     }
     else if(receivedPOST.type == "sync"){
-      sincronitzar(receivedPOST.phone,receivedPOST.name,receivedPOST.surname,receivedPOST.email)
-    }
+      var existingPhone=await queryDatabase("SELECT phone from User where phone='"+receivedPOST.phone+"';");
+        if(existingPhone[0]!=null){
+          var resultado=await queryDatabase("SELECT * from User WHERE phone='"+receivedPOST.phone+"';");
+          result={status: "OK",result:resultado}
+        }
+        else{
+          await queryDatabase("INSERT INTO User(phone,name,surname,email) VALUES('"+
+          receivedPOST.phone+"','"+receivedPOST.name+"','"+receivedPOST.surname+"','"+receivedPOST.email+"');");
+          var resultado=await queryDatabase("SELECT * from User WHERE phone='"+receivedPOST.phone+"';");
+          result={status: "OK",result:resultado}
+        }}
     else if(receivedPOST.type == "star_payment"){
       start_payment(req,res);
     }
@@ -73,7 +71,7 @@ async function get_profiles (req, res) {
         }
       }
   async function setup_payment (id_destiny, quantity) {
-    console.log(quantity);
+    console.log(id_destiny);
     if(id_destiny.length==0){
       result = {status:"ERROR",message:"user_id is required"}
     }
