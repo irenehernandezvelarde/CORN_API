@@ -47,7 +47,17 @@ async function get_profiles (req, res) {
       setup_payment(req,res);
     }
     else if(receivedPOST.type == "sync"){
-      sincronitzar(req,res);
+      var existingPhone=await queryDatabase("SELECT phone from User where phone='"+receivedPOST.phone+"';");
+        if(receivedPOST.phone==existingPhone.phone){
+          var resultado=await queryDatabase("SELECT * from User WHERE phone='"+receivedPOST.phone+"';");
+          result={status: "OK",result:resultado}
+        }
+        else{
+          await queryDatabase("INSERT INTO User(phone,name,surname,email) VALUES('"+
+          receivedPOST.phone+"','"+receivedPOST.name+"','"+receivedPOST.surname+"','"+receivedPOST.email+"');");
+          var resultado=await queryDatabase("SELECT * from User WHERE phone='"+receivedPOST.phone+"';");
+          result={status: "OK",result:resultado}
+        }
     }
     else if(receivedPOST.type == "star_payment"){
       start_payment(req,res);
@@ -59,7 +69,7 @@ async function get_profiles (req, res) {
   res.writeHead(200, { 'Content-Type': 'application/json' })
   res.end(JSON.stringify(result))
 }
-  async function sincronitzar(req,res){
+  /*async function sincronitzar(req,res){
     let receivedPOST = await post.getPostObject(req,res)
     let result = {};
 
@@ -71,10 +81,10 @@ async function get_profiles (req, res) {
         else{
           await queryDatabase("INSERT INTO User(phone,name,surname,email) VALUES("+
           receivedPOST.phone+",'"+receivedPOST.name+"',"+receivedPOST.surname+"',"+receivedPOST.email+"');");
+          var resultado=await queryDatabase("SELECT * from User WHERE phone='"+receivedPOST.phone+"';");
+          result={status: "OK",result:resultado}
         }
-        res.writeHead(200, { 'Content-Type': 'application/json' })
-        res.end(JSON.stringify(result))
-      }
+      }*/
   async function setup_payment (req, res) {
         let receivedPOST = await post.getPostObject(req)
         let result = {};
