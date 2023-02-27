@@ -95,8 +95,9 @@ async function get_profiles (req, res) {
         result = {status:"ERROR",message:"Transaccio repetida"}
       }
       else{
-        var resultado = await(queryDatabase("select * from Transactions where token='"+receivedPOST.token+"';"))
-        result={status:"OK",message:"Transaccio realtzada correctament",transaction_type:"pagament",amount:receivedPOST.quantity,result:resultado}
+        var resultado = await(queryDatabase("select quantity from Transactions where token='"+receivedPOST.transactionToken+"';"))
+        console.log(resultado[0].quantity);
+        result={status:"OK",message:"Transaccio realtzada correctament",transaction_type:"pagament",amount:resultado[0].quantity}
       }
     }
     else if(receivedPOST.type == "finish_payment"){
@@ -108,31 +109,33 @@ async function get_profiles (req, res) {
         result = {status:"ERROR",message:"Transaccio repetida"}
       }
       else{
-          var today = new Date();
-          var dd = today.getDate();
-          var mm = today.getMonth()+1; 
-          var yyyy = today.getFullYear();
-          if(dd<10) 
-          {
-              dd='0'+dd;
-          } 
-
-          if(mm<10) 
-          {
-              mm='0'+mm;
-          } 
-          var horesMinuts=today.getHours()+":"+today.getMinutes()
-          today = mm+'/'+dd+'/'+yyyy+" "+horesMinuts;
-          if(accepted=="true"){
-            await queryDatabase("UPDATE Transactions SET accepted=true, origin='"+receivedPOST.origin_id+"', TimeAccept='"+today+"' WHERE token='"+receivedPOST.transactionToken+"';");
+        var today = new Date();
+        var dd = today.getDate();
+        var mm = today.getMonth()+1; 
+        var yyyy = today.getFullYear();
+        if(dd<10) 
+        {
+            dd='0'+dd;
+        } 
+  
+        if(mm<10) 
+        {
+            mm='0'+mm;
+        } 
+        var horesMinuts=today.getHours()+":"+today.getMinutes()+":"+today.getSeconds()
+        today = mm+'/'+dd+'/'+yyyy+" "+horesMinuts;
+        console.log(today);
+        console.log(receivedPOST.transactionToken);
+          if(receivedPOST.accepted=="true"){
+            await queryDatabase("UPDATE Transactions SET accepted=true, origin='"+receivedPOST.origin_id+"', TimeAccept=STR_TO_DATE('"+today+"','%m/%d/%Y %H:%i:%s') WHERE token='"+receivedPOST.transactionToken+"';");
             var response="Acceptada"
           }
           else{
-            await queryDatabase("UPDATE Transactions SET accepted=falseorigin='"+receivedPOST.origin_id+"',TimeAccept='"+today+"' WHERE token='"+receivedPOST.transactionToken+"';");
+            await queryDatabase("UPDATE Transactions SET accepted=falseorigin='"+receivedPOST.origin_id+"',TimeAccept=STR_TO_DATE('"+today+"','%m/%d/%Y %H:%i:%s') WHERE token='"+receivedPOST.transactionToken+"';");
             var response="Refusada"
           }
           var resultado = await(queryDatabase("select * from Transactions where token='"+receivedPOST.transactionToken+"';"))
-          result={status:"OK",transaction_type:"pagament",amount:quantity,response:response}
+          result={status:"OK",response:response}
         }
       }
   }
