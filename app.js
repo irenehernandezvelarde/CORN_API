@@ -86,12 +86,55 @@ async function get_profiles (req, res) {
           console.log(resultado)
           result={status: "OK",result:resultado,message:"created"}
         }}
-    else if(receivedPOST.type == "star_payment"){
-      start_payment(req,res);
+    else if(receivedPOST.type == "start_payment"){
+      var cuenta = await(queryDatabase("select count(*) from Transactions where token='"+receivedPOST.transactionToken+"';"))
+      if(receivedPOST.transactionToken.length==0){
+        result = {status:"ERROR",message:"Error token buit"}
+      }
+      else if(cuenta>1){
+        result = {status:"ERROR",message:"Transaccio repetida"}
+      }
+      else{
+        var resultado = await(queryDatabase("select * from Transactions where token='"+receivedPOST.token+"';"))
+        result={status:"OK",message:"Transaccio realtzada correctament",transaction_type:"pagament",amount:receivedPOST.quantity,result:resultado}
+      }
     }
     else if(receivedPOST.type == "finish_payment"){
-      finish_payment(req,res);
-    }
+      var cuenta = await(queryDatabase("select count(*) from Transactions where token='"+receivedPOST.transactionToken+"';"))
+      if(receivedPOST.transactionToken.length==0){
+        result = {status:"ERROR",message:"Error token buit"}
+      }
+      else if(cuenta>1){
+        result = {status:"ERROR",message:"Transaccio repetida"}
+      }
+      else{
+          var today = new Date();
+          var dd = today.getDate();
+          var mm = today.getMonth()+1; 
+          var yyyy = today.getFullYear();
+          if(dd<10) 
+          {
+              dd='0'+dd;
+          } 
+
+          if(mm<10) 
+          {
+              mm='0'+mm;
+          } 
+          var horesMinuts=today.getHours()+":"+today.getMinutes()
+          today = mm+'/'+dd+'/'+yyyy+" "+horesMinuts;
+          if(accepted=="true"){
+            await queryDatabase("UPDATE Transactions SET accepted=true, origin='"+receivedPOST.origin_id+"', TimeAccept='"+today+"' WHERE token='"+receivedPOST.transactionToken+"';");
+            var response="Acceptada"
+          }
+          else{
+            await queryDatabase("UPDATE Transactions SET accepted=falseorigin='"+receivedPOST.origin_id+"',TimeAccept='"+today+"' WHERE token='"+receivedPOST.transactionToken+"';");
+            var response="Refusada"
+          }
+          var resultado = await(queryDatabase("select * from Transactions where token='"+receivedPOST.transactionToken+"';"))
+          result={status:"OK",transaction_type:"pagament",amount:quantity,response:response}
+        }
+      }
   }
   res.writeHead(200, { 'Content-Type': 'application/json' })
   res.end(JSON.stringify(result))
@@ -199,10 +242,8 @@ async function get_profiles (req, res) {
         var response="Refusada"
       }
       var resultado = await(queryDatabase("select * from Transactions where token='"+transactionToken+"';"))
-      result={status:"OK",transaction_type:"pagament",amount:quantity,response:resultado}
+      result={status:"OK",transaction_type:"pagament",amount:quantity,response:response}
     }
-    res.writeHead(200, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify(result))
   }
 
 
