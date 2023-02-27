@@ -32,7 +32,7 @@ async function get_profiles (req, res) {
       result = { status: "OK", result: resultado}
     }
     else if (receivedPOST.type == "setup_payment") {
-      if(recievedPOST.id_destiny.length==0){
+      if(receivedPOST.id_destiny.length==0){
         result = {status:"ERROR",message:"user_id is required"}
       }
       else if(receivedPOST.quantity<0){
@@ -61,8 +61,8 @@ async function get_profiles (req, res) {
         var horesMinuts=today.getHours()+":"+today.getMinutes()+":"+today.getSeconds()
         today = mm+'/'+dd+'/'+yyyy+" "+horesMinuts;
         await queryDatabase("INSERT INTO Transactions(destiny,quantity,token,accepted,TimeSetup) "+
-        "values('"+recievedPOST.id_destiny+"',"+
-        recievedPOST.quantity+","+
+        "values('"+receivedPOST.id_destiny+"',"+
+        receivedPOST.quantity+","+
         "'"+token+"',"+
         "false, STR_TO_DATE('"+today+"','%m/%d/%Y %H:%i:%s'));"
         );

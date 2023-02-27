@@ -1,9 +1,9 @@
-POST http://localhost:7352/dades HTTP/1.1
+POST https://corns-production.up.railway.app:443/dades HTTP/1.1
 content-type: application/json
 
 {
     "type":"sync",
-    "phone":"123456789",
+    "phone":"123456779",
     "email":"jaskfhkj@gmail.com",
     "name":"jsafk",
     "surname":"kask"
