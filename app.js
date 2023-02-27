@@ -77,14 +77,14 @@ async function get_profiles (req, res) {
         if(existingPhone[0]!=null){
           var resultado=await queryDatabase("SELECT * from User WHERE phone='"+receivedPOST.phone+"';");
           console.log("selct",resultado)
-          result={status: "OK",result:resultado}
+          result={status: "OK",result:resultado,message:"accepted"}
         }
         else{
           await queryDatabase("INSERT INTO User(phone,name,surname,email) VALUES('"+
           receivedPOST.phone+"','"+receivedPOST.name+"','"+receivedPOST.surname+"','"+receivedPOST.email+"');");
           var resultado=await queryDatabase("SELECT * from User WHERE phone='"+receivedPOST.phone+"';");
           console.log(resultado)
-          result={status: "OK",result:resultado}
+          result={status: "OK",result:resultado,message:"created"}
         }}
     else if(receivedPOST.type == "star_payment"){
       start_payment(req,res);
