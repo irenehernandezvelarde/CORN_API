@@ -3,69 +3,256 @@ const fs = require('fs/promises')
 const url = require('url')
 const post = require('./post.js')
 const { v4: uuidv4 } = require('uuid')
+const mysql = require('mysql2')
 
 // Wait 'ms' milliseconds
 function wait (ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
-
 // Start HTTP server
 const app = express()
-
 // Set port number
-const port = process.env.PORT || 3000
-
+const port = process.env.PORT || 7352
 // Publish static files from 'public' folder
 app.use(express.static('public'))
-
 // Activate HTTP server
 const httpServer = app.listen(port, appListen)
 function appListen () {
   console.log(`Listening for HTTP queries on: http://localhost:${port}`)
 }
-
 // Set URL rout for POST queries
-app.post('/dades', getDades)
-async function getDades (req, res) {
+app.post('/dades', get_profiles)
+async function get_profiles (req, res) {
   let receivedPOST = await post.getPostObject(req)
   let result = {};
-
-  var textFile = await fs.readFile("./public/consoles/consoles-list.json", { encoding: 'utf8'})
-  var objConsolesList = JSON.parse(textFile)
-
+  console.log(receivedPOST.type)
   if (receivedPOST) {
-    if (receivedPOST.type == "consola") {
-      var objFilteredList = objConsolesList.filter((obj) => { return obj.name == receivedPOST.name })
-      await wait(1500)
-      if (objFilteredList.length > 0) {
-        result = { status: "OK", result: objFilteredList[0] }
+    if (receivedPOST.type == "profiles") {
+      var resultado=await queryDatabase("SELECT * from User");
+      result = { status: "OK", result: resultado}
+    }
+    else if (receivedPOST.type == "setup_payment") {
+      if(receivedPOST.id_destiny.length==0){
+        result = {status:"ERROR",message:"user_id is required"}
+      }
+      else if(receivedPOST.quantity<0){
+        result = {status:"ERROR",message:"Wrong amount"}
+      }
+      else{
+        const characters ='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        let token= ' ';
+        const charactersLength = characters.length;
+        for ( let i = 0; i < 200; i++ ) {
+            token += characters.charAt(Math.floor(Math.random() * charactersLength));
+        }
+        var today = new Date();
+        var dd = today.getDate();
+        var mm = today.getMonth()+1; 
+        var yyyy = today.getFullYear();
+        if(dd<10) 
+        {
+            dd='0'+dd;
+        } 
+  
+        if(mm<10) 
+        {
+            mm='0'+mm;
+        } 
+        var horesMinuts=today.getHours()+":"+today.getMinutes()+":"+today.getSeconds()
+        today = mm+'/'+dd+'/'+yyyy+" "+horesMinuts;
+        await queryDatabase("INSERT INTO Transactions(destiny,quantity,token,accepted,TimeSetup) "+
+        "values('"+receivedPOST.id_destiny+"',"+
+        receivedPOST.quantity+","+
+        "'"+token+"',"+
+        "false, STR_TO_DATE('"+today+"','%m/%d/%Y %H:%i:%s'));"
+        );
+        var resultado = await(queryDatabase("select token from Transactions where token='"+token+"';"))
+        console.log(resultado);
+        result={status:"OK",result:resultado}
       }
     }
-    if (receivedPOST.type == "marques") {
-      var objBrandsList = objConsolesList.map((obj) => { return obj.brand })
-      await wait(1500)
-      let senseDuplicats = [...new Set(objBrandsList)]
-      result = { status: "OK", result: senseDuplicats.sort() } 
+    else if(receivedPOST.type == "sync"){
+      console.log("SYNQUING")
+      var existingPhone=await queryDatabase("SELECT phone from User where phone='"+receivedPOST.phone+"';");
+        if(existingPhone[0]!=null){
+          var resultado=await queryDatabase("SELECT * from User WHERE phone='"+receivedPOST.phone+"';");
+          console.log("selct",resultado)
+          result={status: "OK",result:resultado,message:"accepted"}
+        }
+        else{
+          await queryDatabase("INSERT INTO User(phone,name,surname,email) VALUES('"+
+          receivedPOST.phone+"','"+receivedPOST.name+"','"+receivedPOST.surname+"','"+receivedPOST.email+"');");
+          var resultado=await queryDatabase("SELECT * from User WHERE phone='"+receivedPOST.phone+"';");
+          console.log(resultado)
+          result={status: "OK",result:resultado,message:"created"}
+        }}
+    else if(receivedPOST.type == "start_payment"){
+      var cuenta = await(queryDatabase("select count(*) from Transactions where token='"+receivedPOST.transactionToken+"';"))
+      if(receivedPOST.transactionToken.length==0){
+        result = {status:"ERROR",message:"Error token buit"}
+      }
+      else if(cuenta>1){
+        result = {status:"ERROR",message:"Transaccio repetida"}
+      }
+      else{
+        var resultado = await(queryDatabase("select quantity from Transactions where token='"+receivedPOST.transactionToken+"';"))
+        console.log(resultado[0].quantity);
+        result={status:"OK",message:"Transaccio realtzada correctament",transaction_type:"pagament",amount:resultado[0].quantity}
+      }
     }
-    if (receivedPOST.type == "marca") {
-      var objBrandConsolesList = objConsolesList.filter ((obj) => { return obj.brand == receivedPOST.name })
-      await wait(1500)
-      // Ordena les consoles per nom de model
-      objBrandConsolesList.sort((a,b) => { 
-          var textA = a.name.toUpperCase();
-          var textB = b.name.toUpperCase();
-          return (textA < textB) ? -1 : (textA > textB) ? 1 : 0;
-      })
-      result = { status: "OK", result: objBrandConsolesList } 
-    }
+    else if(receivedPOST.type == "finish_payment"){
+      var cuenta = await(queryDatabase("select count(*) from Transactions where token='"+receivedPOST.transactionToken+"';"))
+      if(receivedPOST.transactionToken.length==0){
+        result = {status:"ERROR",message:"Error token buit"}
+      }
+      else if(cuenta>1){
+        result = {status:"ERROR",message:"Transaccio repetida"}
+      }
+      else{
+        var today = new Date();
+        var dd = today.getDate();
+        var mm = today.getMonth()+1; 
+        var yyyy = today.getFullYear();
+        if(dd<10) 
+        {
+            dd='0'+dd;
+        } 
+  
+        if(mm<10) 
+        {
+            mm='0'+mm;
+        } 
+        var horesMinuts=today.getHours()+":"+today.getMinutes()+":"+today.getSeconds()
+        today = mm+'/'+dd+'/'+yyyy+" "+horesMinuts;
+        console.log(today);
+        console.log(receivedPOST.transactionToken);
+          if(receivedPOST.accepted=="true"){
+            await queryDatabase("UPDATE Transactions SET accepted=true, origin='"+receivedPOST.origin_id+"', TimeAccept=STR_TO_DATE('"+today+"','%m/%d/%Y %H:%i:%s') WHERE token='"+receivedPOST.transactionToken+"';");
+            var response="Acceptada"
+          }
+          else{
+            await queryDatabase("UPDATE Transactions SET accepted=falseorigin='"+receivedPOST.origin_id+"',TimeAccept=STR_TO_DATE('"+today+"','%m/%d/%Y %H:%i:%s') WHERE token='"+receivedPOST.transactionToken+"';");
+            var response="Refusada"
+          }
+          var resultado = await(queryDatabase("select * from Transactions where token='"+receivedPOST.transactionToken+"';"))
+          result={status:"OK",response:response}
+        }
+      }
   }
-
   res.writeHead(200, { 'Content-Type': 'application/json' })
   res.end(JSON.stringify(result))
 }
+  async function sincronitzar(phone,name,surname,email){
+      var existingPhone=await queryDatabase("SELECT phone from User where phone='"+phone+"';");
+        if(existingPhone[0]!=null){
+          var resultado=await queryDatabase("SELECT * from User WHERE phone='"+phone+"';");
+          result={status: "OK",result:resultado}
+        }
+        else{
+          await queryDatabase("INSERT INTO User(phone,name,surname,email) VALUES('"+
+          phone+"','"+name+"','"+surname+"','"+email+"');");
+          var resultado=await queryDatabase("SELECT * from User WHERE phone='"+phone+"';");
+          result={status: "OK",result:resultado}
+        }
+        return result
+      }
+  async function setup_payment (id_destiny, quantity) {
+    console.log(id_destiny);
+    if(id_destiny.length==0){
+      result = {status:"ERROR",message:"user_id is required"}
+    }
+    else if(quantity<0){
+      result = {status:"ERROR",message:"Wrong amount"}
+    }
+    else{
+      const characters ='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+      let token= ' ';
+      const charactersLength = characters.length;
+      for ( let i = 0; i < 200; i++ ) {
+          token += characters.charAt(Math.floor(Math.random() * charactersLength));
+      }
+      var today = new Date();
+      var dd = today.getDate();
+      var mm = today.getMonth()+1; 
+      var yyyy = today.getFullYear();
+      if(dd<10) 
+      {
+          dd='0'+dd;
+      } 
+
+      if(mm<10) 
+      {
+          mm='0'+mm;
+      } 
+      var horesMinuts=today.getHours()+":"+today.getMinutes()+":"+today.getSeconds()
+      today = mm+'/'+dd+'/'+yyyy+" "+horesMinuts;
+      await queryDatabase("INSERT INTO Transactions(destiny,quantity,token,accepted,TimeSetup) "+
+      "values('"+id_destiny+"',"+
+      quantity+","+
+      "'"+token+"',"+
+      "false, STR_TO_DATE('"+today+"','%m/%d/%Y %H:%i:%s'));"
+      );
+      var resultado = await(queryDatabase("select token from Transactions where token='"+token+"';"))
+      result={status:"OK",response:resultado}
+      console.log(resultado);
+      result={status:"OK",response:resultado}
+      return result
+    }
+  }
+  async function start_payment () {
+    var cuenta = await(queryDatabase("select count(*) from Transactions where token='"+receivedPOST.transactionToken+"';"))
+    if(receivedPOST.transactionToken.length==0){
+      result = {status:"ERROR",message:"Error token buit"}
+    }
+    else if(cuenta>1){
+      result = {status:"ERROR",message:"Transaccio repetida"}
+    }
+    else{
+      var resultado = await(queryDatabase("select * from Transactions where token='"+receivedPOST.token+"';"))
+      result={status:"OK",message:"Transaccio realtzada correctament",transaction_type:"pagament",amount:receivedPOST.quantity,result:resultado}
+    }
+  }
+  async function finish_payment (transactionToken, accepted) {
+    var cuenta = await(queryDatabase("select count(*) from Transactions where token='"+transactionToken+"';"))
+    if(transactionToken.length==0){
+      result = {status:"ERROR",message:"Error token buit"}
+    }
+    else if(cuenta>1){
+      result = {status:"ERROR",message:"Transaccio repetida"}
+    }
+    else{
+      var today = new Date();
+      var dd = today.getDate();
+      var mm = today.getMonth()+1; 
+      var yyyy = today.getFullYear();
+      if(dd<10) 
+      {
+          dd='0'+dd;
+      } 
+
+      if(mm<10) 
+      {
+          mm='0'+mm;
+      } 
+      var horesMinuts=today.getHours()+":"+today.getMinutes()
+      today = mm+'/'+dd+'/'+yyyy+" "+horesMinuts;
+      if(accepted=="true"){
+        await queryDatabase("UPDATE Transactions SET accepted=true TimeAccept='"+today+"' WHERE token='"+transactionToken+"';");
+        var response="Acceptada"
+      }
+      else{
+        await queryDatabase("UPDATE Transactions SET accepted=false TimeAccept='"+today+"' WHERE token='"+transactionToken+"';");
+        var response="Refusada"
+      }
+      var resultado = await(queryDatabase("select * from Transactions where token='"+transactionToken+"';"))
+      result={status:"OK",transaction_type:"pagament",amount:quantity,response:response}
+    }
+  }
+
 
 // Run WebSocket server
 const WebSocket = require('ws')
+const { response } = require('express')
 const wss = new WebSocket.Server({ server: httpServer })
 const socketsClients = new Map()
 console.log(`Listening for WebSocket queries on ${port}`)
@@ -151,11 +338,11 @@ function queryDatabase (query) {
 
   return new Promise((resolve, reject) => {
     var connection = mysql.createConnection({
-      host: process.env.MYSQLHOST || "localhost",
-      port: process.env.MYSQLPORT || 3306,
+      host: process.env.MYSQLHOST || "containers-us-west-93.railway.app",
+      port: process.env.MYSQLPORT || 7352,
       user: process.env.MYSQLUSER || "root",
-      password: process.env.MYSQLPASSWORD || "",
-      database: process.env.MYSQLDATABASE || "test"
+      password: process.env.MYSQLPASSWORD || "Pf3EYHF733G4gfl29o4m",
+      database: process.env.MYSQLDATABASE || "railway"
     });
 
     connection.query(query, (error, results) => { 
