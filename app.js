@@ -32,8 +32,44 @@ async function get_profiles (req, res) {
       result = { status: "OK", result: resultado}
     }
     else if (receivedPOST.type == "setup_payment") {
-      console.log(receivedPOST.id_destiny);
-      setup_payment(receivedPOST.id_destiny,receivedPOST.quantity);
+      if(recievedPOST.id_destiny.length==0){
+        result = {status:"ERROR",message:"user_id is required"}
+      }
+      else if(recievedPOST.quantity<0){
+        result = {status:"ERROR",message:"Wrong amount"}
+      }
+      else{
+        const characters ='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        let token= ' ';
+        const charactersLength = characters.length;
+        for ( let i = 0; i < 200; i++ ) {
+            token += characters.charAt(Math.floor(Math.random() * charactersLength));
+        }
+        var today = new Date();
+        var dd = today.getDate();
+        var mm = today.getMonth()+1; 
+        var yyyy = today.getFullYear();
+        if(dd<10) 
+        {
+            dd='0'+dd;
+        } 
+  
+        if(mm<10) 
+        {
+            mm='0'+mm;
+        } 
+        var horesMinuts=today.getHours()+":"+today.getMinutes()+":"+today.getSeconds()
+        today = mm+'/'+dd+'/'+yyyy+" "+horesMinuts;
+        await queryDatabase("INSERT INTO Transactions(destiny,quantity,token,accepted,TimeSetup) "+
+        "values('"+recievedPOST.id_destiny+"',"+
+        recievedPOST.quantity+","+
+        "'"+token+"',"+
+        "false, STR_TO_DATE('"+today+"','%m/%d/%Y %H:%i:%s'));"
+        );
+        var resultado = await(queryDatabase("select token from Transactions where token='"+token+"';"))
+        console.log(resultado);
+        result={status:"OK",result:resultado}
+      }
     }
     else if(receivedPOST.type == "sync"){
       var existingPhone=await queryDatabase("SELECT phone from User where phone='"+receivedPOST.phone+"';");
@@ -69,6 +105,7 @@ async function get_profiles (req, res) {
           var resultado=await queryDatabase("SELECT * from User WHERE phone='"+phone+"';");
           result={status: "OK",result:resultado}
         }
+        return result
       }
   async function setup_payment (id_destiny, quantity) {
     console.log(id_destiny);
@@ -107,12 +144,12 @@ async function get_profiles (req, res) {
       "false, STR_TO_DATE('"+today+"','%m/%d/%Y %H:%i:%s'));"
       );
       var resultado = await(queryDatabase("select token from Transactions where token='"+token+"';"))
-      result={status:"Ok",response:resultado}
+      console.log(resultado);
+      result={status:"OK",response:resultado}
+      return result
     }
   }
-  async function start_payment (req, res) {
-    let receivedPOST = await post.getPostObject(req)
-    let result = {};
+  async function start_payment () {
     var cuenta = await(queryDatabase("select count(*) from Transactions where token='"+receivedPOST.transactionToken+"';"))
     if(receivedPOST.transactionToken.length==0){
       result = {status:"ERROR",message:"Error token buit"}
@@ -121,36 +158,11 @@ async function get_profiles (req, res) {
       result = {status:"ERROR",message:"Transaccio repetida"}
     }
     else{
-      var today = new Date();
-      var dd = today.getDate();
-      var mm = today.getMonth()+1; 
-      var yyyy = today.getFullYear();
-      if(dd<10) 
-      {
-          dd='0'+dd;
-      } 
-
-      if(mm<10) 
-      {
-          mm='0'+mm;
-      } 
-      var horesMinuts=today.getHours()+":"+today.getMinutes()
-      today = mm+'/'+dd+'/'+yyyy+" "+horesMinuts;
-      if(receivedPOST.accepted=="true"){
-        await queryDatabase("UPDATE Transactions SET accepted=true TimeAccept=STR_TO_DATE('"+today+"','%m/%d/%Y %H:%i:%s') WHERE token='"+receivedPOST.transactionToken+"';");
-      }
-      else{
-        await queryDatabase("UPDATE Transactions SET accepted=false TimeAccept=STR_TO_DATE('"+today+"','%m/%d/%Y %H:%i:%s') WHERE token='"+receivedPOST.transactionToken+"';");
-      }
       var resultado = await(queryDatabase("select * from Transactions where token='"+receivedPOST.token+"';"))
-      result={status:"Ok",transaction_type:"pagament",amount:receivedPOST.quantity,response:resultado}
+      result={status:"OK",message:"Transaccio realtzada correctament",transaction_type:"pagament",amount:receivedPOST.quantity,result:resultado}
     }
-    res.writeHead(200, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify(result))
   }
   async function finish_payment (transactionToken, accepted) {
-    let receivedPOST = await post.getPostObject(req)
-    let result = {};
     var cuenta = await(queryDatabase("select count(*) from Transactions where token='"+transactionToken+"';"))
     if(transactionToken.length==0){
       result = {status:"ERROR",message:"Error token buit"}
@@ -176,12 +188,14 @@ async function get_profiles (req, res) {
       today = mm+'/'+dd+'/'+yyyy+" "+horesMinuts;
       if(accepted=="true"){
         await queryDatabase("UPDATE Transactions SET accepted=true TimeAccept='"+today+"' WHERE token='"+transactionToken+"';");
+        var response="Acceptada"
       }
       else{
         await queryDatabase("UPDATE Transactions SET accepted=false TimeAccept='"+today+"' WHERE token='"+transactionToken+"';");
+        var response="Refusada"
       }
       var resultado = await(queryDatabase("select * from Transactions where token='"+transactionToken+"';"))
-      result={status:"Ok",transaction_type:"pagament",amount:quantity,response:resultado}
+      result={status:"OK",message:response}
     }
     res.writeHead(200, { 'Content-Type': 'application/json' })
     res.end(JSON.stringify(result))
@@ -190,6 +204,7 @@ async function get_profiles (req, res) {
 
 // Run WebSocket server
 const WebSocket = require('ws')
+const { response } = require('express')
 const wss = new WebSocket.Server({ server: httpServer })
 const socketsClients = new Map()
 console.log(`Listening for WebSocket queries on ${port}`)
@@ -275,10 +290,10 @@ function queryDatabase (query) {
 
   return new Promise((resolve, reject) => {
     var connection = mysql.createConnection({
-      host: process.env.MYSQLHOST || "containers-us-west-83.railway.app",
-      port: process.env.MYSQLPORT || 6311,
+      host: process.env.MYSQLHOST || "containers-us-west-93.railway.app",
+      port: process.env.MYSQLPORT || 7352,
       user: process.env.MYSQLUSER || "root",
-      password: process.env.MYSQLPASSWORD || "6qPnQoYotO8E79BeiVFO",
+      password: process.env.MYSQLPASSWORD || "Pf3EYHF733G4gfl29o4m",
       database: process.env.MYSQLDATABASE || "railway"
     });
 
