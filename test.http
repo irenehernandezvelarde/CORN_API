@@ -1,0 +1,10 @@
+POST http://localhost:7352/dades HTTP/1.1
+content-type: application/json
+
+{
+    "type":"sync",
+    "phone":"123456789",
+    "email":"jaskfhkj@gmail.com",
+    "name":"jsafk",
+    "surname":"kask"
+}

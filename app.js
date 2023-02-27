@@ -12,7 +12,7 @@ function wait (ms) {
 // Start HTTP server
 const app = express()
 // Set port number
-const port = process.env.PORT || 3000
+const port = process.env.PORT || 7352
 // Publish static files from 'public' folder
 app.use(express.static('public'))
 // Activate HTTP server
@@ -25,7 +25,7 @@ app.post('/dades', get_profiles)
 async function get_profiles (req, res) {
   let receivedPOST = await post.getPostObject(req)
   let result = {};
-
+  console.log(receivedPOST.type)
   if (receivedPOST) {
     if (receivedPOST.type == "profiles") {
       var resultado=await queryDatabase("SELECT * from User");
@@ -35,7 +35,7 @@ async function get_profiles (req, res) {
       if(recievedPOST.id_destiny.length==0){
         result = {status:"ERROR",message:"user_id is required"}
       }
-      else if(recievedPOST.quantity<0){
+      else if(receivedPOST.quantity<0){
         result = {status:"ERROR",message:"Wrong amount"}
       }
       else{
@@ -72,15 +72,18 @@ async function get_profiles (req, res) {
       }
     }
     else if(receivedPOST.type == "sync"){
+      console.log("SYNQUING")
       var existingPhone=await queryDatabase("SELECT phone from User where phone='"+receivedPOST.phone+"';");
         if(existingPhone[0]!=null){
           var resultado=await queryDatabase("SELECT * from User WHERE phone='"+receivedPOST.phone+"';");
+          console.log("selct",resultado)
           result={status: "OK",result:resultado}
         }
         else{
           await queryDatabase("INSERT INTO User(phone,name,surname,email) VALUES('"+
           receivedPOST.phone+"','"+receivedPOST.name+"','"+receivedPOST.surname+"','"+receivedPOST.email+"');");
           var resultado=await queryDatabase("SELECT * from User WHERE phone='"+receivedPOST.phone+"';");
+          console.log(resultado)
           result={status: "OK",result:resultado}
         }}
     else if(receivedPOST.type == "star_payment"){
@@ -144,6 +147,7 @@ async function get_profiles (req, res) {
       "false, STR_TO_DATE('"+today+"','%m/%d/%Y %H:%i:%s'));"
       );
       var resultado = await(queryDatabase("select token from Transactions where token='"+token+"';"))
+      result={status:"OK",response:resultado}
       console.log(resultado);
       result={status:"OK",response:resultado}
       return result
@@ -195,7 +199,7 @@ async function get_profiles (req, res) {
         var response="Refusada"
       }
       var resultado = await(queryDatabase("select * from Transactions where token='"+transactionToken+"';"))
-      result={status:"OK",message:response}
+      result={status:"OK",transaction_type:"pagament",amount:quantity,response:resultado}
     }
     res.writeHead(200, { 'Content-Type': 'application/json' })
     res.end(JSON.stringify(result))
