@@ -12,7 +12,7 @@ function wait (ms) {
 // Start HTTP server
 const app = express()
 // Set port number
-const port = process.env.PORT || 7352
+const port = process.env.PORT || 7373
 // Publish static files from 'public' folder
 app.use(express.static('public'))
 // Activate HTTP server
@@ -131,7 +131,7 @@ async function get_profiles (req, res) {
             var response="Acceptada"
           }
           else{
-            await queryDatabase("UPDATE Transactions SET accepted=falseorigin='"+receivedPOST.origin_id+"',TimeAccept=STR_TO_DATE('"+today+"','%m/%d/%Y %H:%i:%s') WHERE token='"+receivedPOST.transactionToken+"';");
+            await queryDatabase("UPDATE Transactions SET accepted=false, origin='"+receivedPOST.origin_id+"',TimeAccept=STR_TO_DATE('"+today+"','%m/%d/%Y %H:%i:%s') WHERE token='"+receivedPOST.transactionToken+"';");
             var response="Refusada"
           }
           var resultado = await(queryDatabase("select * from Transactions where token='"+receivedPOST.transactionToken+"';"))
@@ -338,10 +338,10 @@ function queryDatabase (query) {
 
   return new Promise((resolve, reject) => {
     var connection = mysql.createConnection({
-      host: process.env.MYSQLHOST || "containers-us-west-93.railway.app",
-      port: process.env.MYSQLPORT || 7352,
+      host: process.env.MYSQLHOST || "containers-us-west-159.railway.app",
+      port: process.env.MYSQLPORT || 7373,
       user: process.env.MYSQLUSER || "root",
-      password: process.env.MYSQLPASSWORD || "Pf3EYHF733G4gfl29o4m",
+      password: process.env.MYSQLPASSWORD || "DJUXedYX6zgXbDnYciHu",
       database: process.env.MYSQLDATABASE || "railway"
     });
 
