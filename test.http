@@ -1,0 +1,7 @@
+POST https://corns-production.up.railway.app:443/dades HTTP/1.1
+content-type: application/json
+
+{
+    "type":"start_payment",
+    "transactionToken":"9MGsDAWS7wHOsSErI5mcJTxu3uOMwS9K6s3aWPlcKhudYKDlwRDP3yzVHUmwQdk5GcWdvDULUMkY53Q4YAFbMxJqkIYZgcDfUWpaLtYMlN7UvmGH4xe4mC60OsOqSdZrTC8PYAPA2qULG6FJKNCSekEqk0Qig2fxBVAElhl0lZ0d71q8Sr6YFfbsekAVSIlhPcvTId9B",
+}
