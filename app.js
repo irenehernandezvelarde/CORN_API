@@ -12,7 +12,7 @@ function wait (ms) {
 // Start HTTP server
 const app = express()
 // Set port number
-const port = process.env.PORT || 7352
+const port = process.env.PORT || 6182
 // Publish static files from 'public' folder
 app.use(express.static('public'))
 // Activate HTTP server
@@ -28,7 +28,11 @@ async function get_profiles (req, res) {
   console.log(receivedPOST.type)
   if (receivedPOST) {
     if (receivedPOST.type == "profiles") {
-      var resultado=await queryDatabase("SELECT * from User");
+      var resultado=await queryDatabase("SELECT * from User;");
+      result = { status: "OK", result: resultado}
+    }
+    else if (receivedPOST.type == "get_profile") {
+      var resultado=await queryDatabase("SELECT * from User where phone='"+receivedPOST.phone+"';");
       result = { status: "OK", result: resultado}
     }
     else if (receivedPOST.type == "setup_payment") {
@@ -42,7 +46,7 @@ async function get_profiles (req, res) {
         const characters ='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
         let token= ' ';
         const charactersLength = characters.length;
-        for ( let i = 0; i < 200; i++ ) {
+        for ( let i = 0; i < 100; i++ ) {
             token += characters.charAt(Math.floor(Math.random() * charactersLength));
         }
         var today = new Date();
@@ -61,11 +65,11 @@ async function get_profiles (req, res) {
         var horesMinuts=today.getHours()+":"+today.getMinutes()+":"+today.getSeconds()
         today = mm+'/'+dd+'/'+yyyy+" "+horesMinuts;
         await queryDatabase("INSERT INTO Transactions(destiny,quantity,token,accepted,TimeSetup) "+
-        "values('"+receivedPOST.id_destiny+"',"+
-        receivedPOST.quantity+","+
-        "'"+token+"',"+
-        "false, STR_TO_DATE('"+today+"','%m/%d/%Y %H:%i:%s'));"
-        );
+          "values('"+receivedPOST.id_destiny+"',"+
+          receivedPOST.quantity+","+
+          "'"+token+"',"+
+          "false, STR_TO_DATE('"+today+"','%m/%d/%Y %H:%i:%s'));"
+          );
         var resultado = await(queryDatabase("select token from Transactions where token='"+token+"';"))
         console.log(resultado);
         result={status:"OK",result:resultado}
@@ -86,8 +90,24 @@ async function get_profiles (req, res) {
           console.log(resultado)
           result={status: "OK",result:resultado,message:"created"}
         }}
+    else if(receivedPOST.type == "login"){
+      var existingPhone=await queryDatabase("SELECT phone from User where phone='"+receivedPOST.phone+"';");
+        if(existingPhone[0]!=null){
+          var resultado=await queryDatabase("SELECT * from User WHERE phone='"+receivedPOST.phone+"';");
+          console.log("selct",resultado)
+          result={status: "OK",result:resultado,message:"accepted"}
+        }
+        else{
+          result={status: "ERROR",message:"unexistent"}
+        }}
+    else if(receivedPOST.type == "signup"){
+      await queryDatabase("INSERT INTO User(phone,name,surname,email) VALUES('"+
+          receivedPOST.phone+"','"+receivedPOST.name+"','"+receivedPOST.surname+"','"+receivedPOST.email+"');");
+          var resultado=await queryDatabase("SELECT * from User WHERE phone='"+receivedPOST.phone+"';");
+          result={status: "OK",result:resultado,message:"created"}
+    }
     else if(receivedPOST.type == "start_payment"){
-      var cuenta = await(queryDatabase("select count(*) from Transactions where token='"+receivedPOST.transactionToken+"';"))
+      var cuenta = await(queryDatabase(`select count(*) from Transactions where token="${receivedPOST.transactionToken}";`))
       if(receivedPOST.transactionToken.length==0){
         result = {status:"ERROR",message:"Error token buit"}
       }
@@ -101,12 +121,17 @@ async function get_profiles (req, res) {
       }
     }
     else if(receivedPOST.type == "finish_payment"){
-      var cuenta = await(queryDatabase("select count(*) from Transactions where token='"+receivedPOST.transactionToken+"';"))
+      await queryDatabase("SET autocommit=0;") 
+      var cuenta = await queryDatabase("select count(*) from Transactions where token='"+receivedPOST.transactionToken+"';")
+      var dinero = await queryDatabase("SELECT balance FROM User WHERE phone='"+receivedPOST.origin_id+";'");
       if(receivedPOST.transactionToken.length==0){
         result = {status:"ERROR",message:"Error token buit"}
       }
       else if(cuenta>1){
         result = {status:"ERROR",message:"Transaccio repetida"}
+      }
+      else if(receivedPOST.quantity>dinero[0].balance){
+        result = {status:"ERROR",message:"Diners insuficients"}
       }
       else{
         var today = new Date();
@@ -123,18 +148,27 @@ async function get_profiles (req, res) {
             mm='0'+mm;
         } 
         var horesMinuts=today.getHours()+":"+today.getMinutes()+":"+today.getSeconds()
+        var destino=null
         today = mm+'/'+dd+'/'+yyyy+" "+horesMinuts;
-        console.log(today);
-        console.log(receivedPOST.transactionToken);
           if(receivedPOST.accepted=="true"){
-            await queryDatabase("UPDATE Transactions SET accepted=true, origin='"+receivedPOST.origin_id+"', TimeAccept=STR_TO_DATE('"+today+"','%m/%d/%Y %H:%i:%s') WHERE token='"+receivedPOST.transactionToken+"';");
+            try{
+              await queryDatabase("UPDATE Transactions SET accepted=true, origin='"+receivedPOST.origin_id+"', TimeAccept=STR_TO_DATE('"+today+"','%m/%d/%Y %H:%i:%s') WHERE token='"+receivedPOST.transactionToken+"';");
+              await queryDatabase("UPDATE User SET balance=balance-"+receivedPOST.quantity+" WHERE phone='"+receivedPOST.origin_id+"';");
+              destino = await queryDatabase("select destiny from Transactions where token='"+receivedPOST.transactionToken+"';")
+              await queryDatabase("UPDATE User SET balance=balance+"+receivedPOST.quantity+" WHERE phone='"+destino[0].destiny+"';")
+              await queryDatabase("commit;")
+            }
+            catch(error){
+              await queryDatabase("rollback;")
+            }
             var response="Acceptada"
           }
           else{
-            await queryDatabase("UPDATE Transactions SET accepted=falseorigin='"+receivedPOST.origin_id+"',TimeAccept=STR_TO_DATE('"+today+"','%m/%d/%Y %H:%i:%s') WHERE token='"+receivedPOST.transactionToken+"';");
+            await queryDatabase("UPDATE Transactions SET accepted=false, origin='"+receivedPOST.origin_id+"',TimeAccept=STR_TO_DATE('"+today+"','%m/%d/%Y %H:%i:%s') WHERE token='"+receivedPOST.transactionToken+"';");
             var response="Refusada"
           }
-          var resultado = await(queryDatabase("select * from Transactions where token='"+receivedPOST.transactionToken+"';"))
+          var resultado = await queryDatabase("select * from Transactions where token='"+receivedPOST.transactionToken+"';")
+          await queryDatabase("SET autocommit=1;") 
           result={status:"OK",response:response}
         }
       }
@@ -338,10 +372,10 @@ function queryDatabase (query) {
 
   return new Promise((resolve, reject) => {
     var connection = mysql.createConnection({
-      host: process.env.MYSQLHOST || "containers-us-west-93.railway.app",
-      port: process.env.MYSQLPORT || 7352,
+      host: process.env.MYSQLHOST || "containers-us-west-48.railway.app",
+      port: process.env.MYSQLPORT || 6182,
       user: process.env.MYSQLUSER || "root",
-      password: process.env.MYSQLPASSWORD || "Pf3EYHF733G4gfl29o4m",
+      password: process.env.MYSQLPASSWORD || "SflKs2xMqjMsQCaC49aj",
       database: process.env.MYSQLDATABASE || "railway"
     });
 

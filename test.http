@@ -2,6 +2,11 @@ POST https://corns-production.up.railway.app:443/dades HTTP/1.1
 content-type: application/json
 
 {
-    "type":"start_payment",
-    "transactionToken":"9MGsDAWS7wHOsSErI5mcJTxu3uOMwS9K6s3aWPlcKhudYKDlwRDP3yzVHUmwQdk5GcWdvDULUMkY53Q4YAFbMxJqkIYZgcDfUWpaLtYMlN7UvmGH4xe4mC60OsOqSdZrTC8PYAPA2qULG6FJKNCSekEqk0Qig2fxBVAElhl0lZ0d71q8Sr6YFfbsekAVSIlhPcvTId9B",
+    "type":"finish_payment",
+    "transactionToken":" rW1CIKGkSlM1CYdrgV6qh3ud5nXJEqewAzJ1bI1Rvr7Mi83ASkNSRz1FNrVs8ixDq9UwQH2d68uHg7IVuirAcKMYmG5uml5WyUL8",
+    "quantity":5,
+    "origin_id":612345678,
+    "accepted":"true"
+    
+
 }
