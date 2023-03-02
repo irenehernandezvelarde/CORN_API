@@ -1,6 +1,6 @@
 -- MySQL dump 10.13  Distrib 8.0.32, for Win64 (x86_64)
 --
--- Host: containers-us-west-166.railway.app    Database: railway
+-- Host: containers-us-west-48.railway.app    Database: railway
 -- ------------------------------------------------------
 -- Server version	8.0.32
 
@@ -52,11 +52,11 @@ CREATE TABLE `Transactions` (
   `quantity` float DEFAULT NULL,
   `token` varchar(255) DEFAULT NULL,
   `accepted` tinyint(1) DEFAULT NULL,
-  `TimeSetup` date DEFAULT NULL,
-  `TimeAccept` date DEFAULT NULL,
+  `TimeSetup` timestamp NULL DEFAULT NULL,
+  `TimeAccept` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id_transaction`),
   UNIQUE KEY `token` (`token`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -65,7 +65,7 @@ CREATE TABLE `Transactions` (
 
 LOCK TABLES `Transactions` WRITE;
 /*!40000 ALTER TABLE `Transactions` DISABLE KEYS */;
-INSERT INTO `Transactions` VALUES (1,'e',NULL,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `Transactions` VALUES (1,'e',NULL,NULL,NULL,NULL,NULL,NULL),(2,NULL,'612345678',1,' SSw6gV7vnqP52KxL09MAAnkBPOkbgnOMHxCmcWujZjTZMnPp6ix32uauES0okH1CHY8HpxczraD9s069OwA1akeQrzrvwpsceWZ2Rm6G6zg8AmmuhQaaTSSkcjPQJM3L26mnLtErIiYDvdMuHt3p2yz8mlP14qHtURRlnJ5vMlQaKnEJBwdxUFmcsbGQURng710SeQkD',0,'2023-03-02 02:00:00',NULL),(3,NULL,'612345678',1,' RPe00iR7zc1Nsc6EI2eOJoYTVbPjqRtu2dga5cx3ngzIUFjyFDxrM40fiLUDoZDgewJUPbuCdR88UnUMQEdp5ank2bwt5RPG3X4OumjM5oWG4JnFwn7P016zBM9CKWyMGrgans7G1v2xYXwfYVExtH4aLyxH5kDtlA5leUBWoh9nRxSEN6E9liID4dzdoCzez2L0vxZ8',0,'2023-03-02 14:42:47',NULL),(4,'612345677','612345678',5,'hola',1,'2023-03-02 18:27:55','2023-03-02 17:39:03'),(7,'612345678','612345677',3,' rW1CIKGkSlM1CYdrgV6qh3ud5nXJEqewAzJ1bI1Rvr7Mi83ASkNSRz1FNrVs8ixDq9UwQH2d68uHg7IVuirAcKMYmG5uml5WyUL8',1,'2023-03-02 17:44:43','2023-03-02 17:54:07');
 /*!40000 ALTER TABLE `Transactions` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -83,6 +83,7 @@ CREATE TABLE `User` (
   `email` text,
   `password` text,
   `token` text,
+  `balance` double DEFAULT NULL,
   PRIMARY KEY (`phone`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -93,7 +94,7 @@ CREATE TABLE `User` (
 
 LOCK TABLES `User` WRITE;
 /*!40000 ALTER TABLE `User` DISABLE KEYS */;
-INSERT INTO `User` VALUES (612345678,'a','a','a','a',NULL),(612345679,'b','b','b','b',NULL);
+INSERT INTO `User` VALUES (612345677,'Pablo','Munuera','pmunuera@gmail.com','P@ssw0rd',NULL,100),(612345678,'a','a','a','a',NULL,130),(612345679,'b','b','b','b',NULL,30);
 /*!40000 ALTER TABLE `User` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -106,4 +107,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2023-02-17 17:14:33
+-- Dump completed on 2023-03-02 19:58:29

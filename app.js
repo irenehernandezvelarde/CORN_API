@@ -91,18 +91,35 @@ async function get_profiles (req, res) {
           result={status: "OK",result:resultado,message:"created"}
         }}
     else if(receivedPOST.type == "login"){
-      var existingPhone=await queryDatabase("SELECT phone from User where phone='"+receivedPOST.phone+"';");
-        if(existingPhone[0]!=null){
-          var resultado=await queryDatabase("SELECT * from User WHERE phone='"+receivedPOST.phone+"';");
-          console.log("selct",resultado)
-          result={status: "OK",result:resultado,message:"accepted"}
+      const characters ="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,.;:'?¿!<#$%&/()-+*";
+        let token= ' ';
+        const charactersLength = characters.length;
+        for ( let i = 0; i < 30; i++ ) {
+            token += characters.charAt(Math.floor(Math.random() * charactersLength));
+        }
+      var existing=await queryDatabase("SELECT * from User where email='"+receivedPOST.email+"';");
+        if(existing[0]!=null){
+          if(existing[0].password==receivedPOST.password){
+            await queryDatabase("UPDATE User SET token='"+token+"' WHERE email='"+receivedPOST.email+"';");
+            var resultado=await queryDatabase("SELECT * from User WHERE email='"+receivedPOST.email+"';");
+            result={status: "OK",result:resultado,message:"accepted"}
+          }
+          else{
+            result={status: "ERROR",message:"incorrect password"}
+          }
         }
         else{
-          result={status: "ERROR",message:"unexistent"}
+          result={status: "ERROR",message:"unexistent",exist:existing}
         }}
     else if(receivedPOST.type == "signup"){
-      await queryDatabase("INSERT INTO User(phone,name,surname,email) VALUES('"+
-          receivedPOST.phone+"','"+receivedPOST.name+"','"+receivedPOST.surname+"','"+receivedPOST.email+"');");
+      const characters ="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,.;:'?¿!<#$%&/()-+*";
+        let token= ' ';
+        const charactersLength = characters.length;
+        for ( let i = 0; i < 30; i++ ) {
+            token += characters.charAt(Math.floor(Math.random() * charactersLength));
+        }
+      await queryDatabase("INSERT INTO User(phone,name,surname,email,password,token,balance) VALUES('"+
+          receivedPOST.phone+"','"+receivedPOST.name+"','"+receivedPOST.surname+"','"+receivedPOST.email+",'"+receivedPOST.password+"',"+token+",50);");
           var resultado=await queryDatabase("SELECT * from User WHERE phone='"+receivedPOST.phone+"';");
           result={status: "OK",result:resultado,message:"created"}
     }

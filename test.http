@@ -2,11 +2,8 @@ POST https://corns-production.up.railway.app:443/dades HTTP/1.1
 content-type: application/json
 
 {
-    "type":"finish_payment",
-    "transactionToken":" rW1CIKGkSlM1CYdrgV6qh3ud5nXJEqewAzJ1bI1Rvr7Mi83ASkNSRz1FNrVs8ixDq9UwQH2d68uHg7IVuirAcKMYmG5uml5WyUL8",
-    "quantity":5,
-    "origin_id":612345678,
-    "accepted":"true"
-    
+    "type":"login",
+    "password":"P@ssw0rd",
+    "email":"pmunuera@gmail.com"
 
 }
