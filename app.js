@@ -12,7 +12,7 @@ function wait (ms) {
 // Start HTTP server
 const app = express()
 // Set port number
-const port = process.env.PORT || 6182
+const port = process.env.PORT || 3000
 // Publish static files from 'public' folder
 app.use(express.static('public'))
 // Activate HTTP server
@@ -389,10 +389,10 @@ function queryDatabase (query) {
 
   return new Promise((resolve, reject) => {
     var connection = mysql.createConnection({
-      host: process.env.MYSQLHOST || "containers-us-west-48.railway.app",
-      port: process.env.MYSQLPORT || 6182,
+      host: process.env.MYSQLHOST || "containers-us-west-136.railway.app",
+      port: process.env.MYSQLPORT || 7960,
       user: process.env.MYSQLUSER || "root",
-      password: process.env.MYSQLPASSWORD || "SflKs2xMqjMsQCaC49aj",
+      password: process.env.MYSQLPASSWORD || "bBQkwADYTLW7WvWKRrjA",
       database: process.env.MYSQLDATABASE || "railway"
     });
 
