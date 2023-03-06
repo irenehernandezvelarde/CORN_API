@@ -32,8 +32,23 @@ async function get_profiles (req, res) {
       result = { status: "OK", result: resultado}
     }
     else if (receivedPOST.type == "get_profile") {
-      var resultado=await queryDatabase("SELECT * from User where phone='"+receivedPOST.phone+"';");
-      result = { status: "OK", result: resultado}
+      var resultado=await queryDatabase("SELECT * from User where token='"+receivedPOST.token+"';");
+      result = { status: "OK", result: resultado,token:receivedPOST.token}
+    }
+    else if (receivedPOST.type == "get_transactions") {
+      var transaction=await queryDatabase("SELECT * from Transactions where destiny='"+receivedPOST.phone+"' OR origin='"+receivedPOST.phone+"';");
+      result = { status: "OK", transactions:transaction}
+    }
+    else if(receivedPOST.type == "change_token"){
+      const characters ="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,.;:?¿!<#$%&/()-+*";
+        let token= ' ';
+        const charactersLength = characters.length;
+        for ( let i = 0; i < 30; i++ ) {
+            token += characters.charAt(Math.floor(Math.random() * charactersLength));
+        }
+        await queryDatabase("UPDATE User SET token='"+token+"' WHERE phone='"+receivedPOST.phone+"';");
+        var resultado=await queryDatabase("SELECT * from User WHERE phone='"+receivedPOST.phone+"';");
+        result={status: "OK",result:resultado,newToken:token}
     }
     else if (receivedPOST.type == "setup_payment") {
       if(receivedPOST.id_destiny.length==0){
@@ -91,7 +106,7 @@ async function get_profiles (req, res) {
           result={status: "OK",result:resultado,message:"created"}
         }}
     else if(receivedPOST.type == "login"){
-      const characters ="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,.;:'?¿!<#$%&/()-+*";
+      const characters ="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,.;:?¿!<#$%&/()-+*";
         let token= ' ';
         const charactersLength = characters.length;
         for ( let i = 0; i < 30; i++ ) {
@@ -112,16 +127,33 @@ async function get_profiles (req, res) {
           result={status: "ERROR",message:"unexistent",exist:existing}
         }}
     else if(receivedPOST.type == "signup"){
-      const characters ="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,.;:'?¿!<#$%&/()-+*";
+      const characters ="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,.;:?¿!<#$%&/()-+*";
         let token= ' ';
         const charactersLength = characters.length;
         for ( let i = 0; i < 30; i++ ) {
             token += characters.charAt(Math.floor(Math.random() * charactersLength));
         }
-      await queryDatabase("INSERT INTO User(phone,name,surname,email,password,token,balance) VALUES('"+
-          receivedPOST.phone+"','"+receivedPOST.name+"','"+receivedPOST.surname+"','"+receivedPOST.email+",'"+receivedPOST.password+"',"+token+",50);");
-          var resultado=await queryDatabase("SELECT * from User WHERE phone='"+receivedPOST.phone+"';");
-          result={status: "OK",result:resultado,message:"created"}
+        if(receivedPOST.phone.toString().length==0){
+          result={status: "ERROR",message:"Insert phone"}
+        }
+        else if(receivedPOST.email.length==0){
+          result={status: "ERROR",message:"Insert mail"}
+        }
+        else if(receivedPOST.name.length==0){
+          result={status: "ERROR",message:"Insert name"}
+        }
+        else if(receivedPOST.surname.length==0){
+          result={status: "ERROR",message:"Insert surname"}
+        }
+        else if(receivedPOST.password.length==0){
+          result={status: "ERROR",message:"Insert password"}
+        }
+        else{
+        await queryDatabase("INSERT INTO User(phone,name,surname,email,password,token,balance) VALUES('"+
+            receivedPOST.phone+"','"+receivedPOST.name+"','"+receivedPOST.surname+"','"+receivedPOST.email+"','"+receivedPOST.password+"','"+token+"',50);");
+            var resultado=await queryDatabase("SELECT * from User WHERE phone='"+receivedPOST.phone+"';");
+            result={status: "OK",result:resultado,message:"created",mail:receivedPOST.email}
+        }
     }
     else if(receivedPOST.type == "start_payment"){
       var cuenta = await(queryDatabase(`select count(*) from Transactions where token="${receivedPOST.transactionToken}";`))
@@ -389,10 +421,10 @@ function queryDatabase (query) {
 
   return new Promise((resolve, reject) => {
     var connection = mysql.createConnection({
-      host: process.env.MYSQLHOST || "containers-us-west-136.railway.app",
-      port: process.env.MYSQLPORT || 7960,
+      host: process.env.MYSQLHOST || "containers-us-west-61.railway.app",
+      port: process.env.MYSQLPORT || 7292,
       user: process.env.MYSQLUSER || "root",
-      password: process.env.MYSQLPASSWORD || "bBQkwADYTLW7WvWKRrjA",
+      password: process.env.MYSQLPASSWORD || "OXngQGIlgaVy1NJ5gFcI",
       database: process.env.MYSQLDATABASE || "railway"
     });
 

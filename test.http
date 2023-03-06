@@ -2,8 +2,6 @@ POST https://corns-production.up.railway.app:443/dades HTTP/1.1
 content-type: application/json
 
 {
-    "type":"login",
-    "password":"P@ssw0rd",
-    "email":"pmunuera@gmail.com"
-
+    "type":"signup",
+    "phone":"444444412"
 }
