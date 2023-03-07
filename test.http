@@ -2,6 +2,9 @@ POST https://corns-production.up.railway.app:443/dades HTTP/1.1
 content-type: application/json
 
 {
-    "type":"signup",
-    "phone":"444444412"
+    "type":"finish_payment",
+    "token":" &t<tqNL2LG*Gx1Jv1vn,L7,HoPOeEH",
+    "transactionToken":" 1WhKoToo3SfiyOr75gXSvQmYGApGJXYvtMBZUVMVJAhJsK8hNTybZ4kwW5emQAXIUPs2bX7uRT5uWncp1QmRRqIeA1Ef8vMTWZC4",
+    "accepted":"true",
+    "quantity":10
 }
