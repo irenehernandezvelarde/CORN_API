@@ -222,6 +222,12 @@ async function get_profiles (req, res) {
           result={status:"OK",response:response}
         }
       }
+    else if(receivedPOST.type=="filtrar"){
+      if(receivedPOST.filtre=="ACTIVE"){
+        var resultado=await queryDatabase("SELECT * from User;");
+        result = { status: "OK", result: resultado}
+      }
+    }
   }
   res.writeHead(200, { 'Content-Type': 'application/json' })
   res.end(JSON.stringify(result))
