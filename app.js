@@ -223,9 +223,61 @@ async function get_profiles (req, res) {
         }
       }
     else if(receivedPOST.type=="filtrar"){
-      if(receivedPOST.filtre=="ACTIVE"){
-        var resultado=await queryDatabase("SELECT * from User;");
+      if(receivedPOST.tipusFiltre=="estat"){
+        var resultado=await queryDatabase("SELECT * from User where state='"+receivedPOST.filtre+"';");
         result = { status: "OK", result: resultado}
+      }
+      else if(receivedPOST.tipusFiltre=="saldos"){
+          var resultado=await queryDatabase("SELECT * from User where balance>="+receivedPOST.min+" AND balance <= "+receivedPOST.max+";");
+          result = { status: "OK", result: resultado}
+      }
+      else if(receivedPOST.tipusFiltre=="nTransaccions"){
+        console.log("Min: "+receivedPOST.min);
+        console.log("Max: "+receivedPOST.max);
+          /*var resultado=await queryDatabase("SELECT u.* FROM User u INNER JOIN "+
+          "Transactions t ON u.phone=t.origin OR u.phone=t.destiny where (SELECT count(*) FROM Transactions GROUP BY destiny)=0;");
+          var prueba = await queryDatabase("SELECT count(*) FROM Transactions GROUP BY destiny;")
+          var prueba2 = await queryDatabase("SELECT count(*) FROM Transactions GROUP BY origin;")
+          console.log(prueba);
+          console.log(prueba2);
+          console.log(resultado);
+          var resultado=await queryDatabase("SELECT * FROM User RIGHT JOIN Transactions ON Transactions.destiny=User.phone OR Transactions.origin=User.phone WHERE (SELECT COUNT(*) FROM Transactions"+ 
+          " WHERE User.phone IN (SELECT destiny FROM Transactions) OR User.phone IN (SELECT origin FROM Transactions))>="+receivedPOST.min+" AND (SELECT COUNT(*) FROM Transactions"+ 
+          " WHERE User.phone IN (SELECT destiny FROM Transactions) OR User.phone IN (SELECT origin FROM Transactions)) <="+receivedPOST.max+";");
+          
+          let senseDuplicats = [...new Set(resultado)]
+          console.log(senseDuplicats.sort());*/
+          var query1 = await queryDatabase("SELECT phone FROM User;");
+          const saveUsers=[];
+          for (var i=0; i< query1.length; i++){
+            console.log(query1[i].phone);
+            var query2 = await queryDatabase("SELECT count(*) as count FROM Transactions where origin='"+query1[i].phone+"' GROUP BY origin;");
+            var query3 = await queryDatabase("SELECT count(*) as count FROM Transactions where destiny='"+query1[i].phone+"' GROUP BY destiny;");
+            console.log(query2);
+            if(query2[0]!=null && query3[0]!=null){
+              if((query2[0].count+query3[0].count)>=receivedPOST.min&&(query2[0].count+query3[0].count)<=receivedPOST.max){
+                saveUsers.push(query1[i].phone)
+              }
+            }
+            else if(query2[0]!=null&& query3[0]==null){
+              if((query2[0].count)>=receivedPOST.min&&(query2[0].count)<=receivedPOST.max){
+                saveUsers.push(query1[i].phone)
+              }
+            }
+            else if(query2[0]==null&& query3[0]!=null){
+              if((query3[0].count)>=receivedPOST.min&&(query3[0].count)<=receivedPOST.max){
+                saveUsers.push(query1[i].phone)
+              }
+            }
+            else if(query2[0]==null&& query3[0]==null){
+              if(0>=receivedPOST.min&&0<=receivedPOST.max){
+                saveUsers.push(query1[i].phone)
+              }
+            }
+            console.log(saveUsers);
+          }
+          var resultado= await queryDatabase("SELECT * FROM User WHERE phone in ("+saveUsers+");");
+          result = { status: "OK", result: resultado}
       }
     }
   }
@@ -342,7 +394,7 @@ async function get_profiles (req, res) {
 
 // Run WebSocket server
 const WebSocket = require('ws')
-const { response } = require('express')
+const { response, query } = require('express')
 const wss = new WebSocket.Server({ server: httpServer })
 const socketsClients = new Map()
 console.log(`Listening for WebSocket queries on ${port}`)
@@ -428,10 +480,10 @@ function queryDatabase (query) {
 
   return new Promise((resolve, reject) => {
     var connection = mysql.createConnection({
-      host: process.env.MYSQLHOST || "containers-us-west-159.railway.app",
-      port: process.env.MYSQLPORT || 7373,
+      host: process.env.MYSQLHOST || "containers-us-west-151.railway.app",
+      port: process.env.MYSQLPORT || 6244,
       user: process.env.MYSQLUSER || "root",
-      password: process.env.MYSQLPASSWORD || "DJUXedYX6zgXbDnYciHu",
+      password: process.env.MYSQLPASSWORD || "Ubvw7f4IpTgDklb5ZZe8",
       database: process.env.MYSQLDATABASE || "railway"
     });
 
