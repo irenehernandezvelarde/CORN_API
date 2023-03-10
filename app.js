@@ -232,21 +232,6 @@ async function get_profiles (req, res) {
           result = { status: "OK", result: resultado}
       }
       else if(receivedPOST.tipusFiltre=="nTransaccions"){
-        console.log("Min: "+receivedPOST.min);
-        console.log("Max: "+receivedPOST.max);
-          /*var resultado=await queryDatabase("SELECT u.* FROM User u INNER JOIN "+
-          "Transactions t ON u.phone=t.origin OR u.phone=t.destiny where (SELECT count(*) FROM Transactions GROUP BY destiny)=0;");
-          var prueba = await queryDatabase("SELECT count(*) FROM Transactions GROUP BY destiny;")
-          var prueba2 = await queryDatabase("SELECT count(*) FROM Transactions GROUP BY origin;")
-          console.log(prueba);
-          console.log(prueba2);
-          console.log(resultado);
-          var resultado=await queryDatabase("SELECT * FROM User RIGHT JOIN Transactions ON Transactions.destiny=User.phone OR Transactions.origin=User.phone WHERE (SELECT COUNT(*) FROM Transactions"+ 
-          " WHERE User.phone IN (SELECT destiny FROM Transactions) OR User.phone IN (SELECT origin FROM Transactions))>="+receivedPOST.min+" AND (SELECT COUNT(*) FROM Transactions"+ 
-          " WHERE User.phone IN (SELECT destiny FROM Transactions) OR User.phone IN (SELECT origin FROM Transactions)) <="+receivedPOST.max+";");
-          
-          let senseDuplicats = [...new Set(resultado)]
-          console.log(senseDuplicats.sort());*/
           var query1 = await queryDatabase("SELECT phone FROM User;");
           const saveUsers=[];
           for (var i=0; i< query1.length; i++){
@@ -279,6 +264,45 @@ async function get_profiles (req, res) {
           var resultado= await queryDatabase("SELECT * FROM User WHERE phone in ("+saveUsers+");");
           result = { status: "OK", result: resultado}
       }
+    }
+    else if(receivedPOST.type=="send_id"){
+      // Rebre el camp String amb dades binaries del client
+      console.log("Entra ");
+      const fileBuffer = Buffer.from(receivedPOST.photo, 'base64');
+      //const fileBuffer2 = Buffer.from(receivedPOST.photo2, 'base64');
+      if(receivedPOST.foto=="front"){
+        await queryDatabase("UPDATE User SET frontImage = '"+receivedPOST.name+"' WHERE token= '"+receivedPOST.token+"';");
+      }
+      if(receivedPOST.foto=="back"){
+        await queryDatabase("UPDATE User SET backImage = '"+receivedPOST.name+"' WHERE token= '"+receivedPOST.token+"';");
+      }
+      // Guardar les dades binaries en un arxiu (a la carpeta ‘private’ amb el nom original)
+      const path = "./private"
+      await fs.mkdir(path, { recursive: true }) // Crea el directori si no existeix
+      await fs.writeFile(`${path}/${receivedPOST.name}`, fileBuffer)
+      var files = await fs.readdir("./private")
+      console.log(files);
+      // Informar que tot ha anat bé
+      await wait(1500)
+      result = { status: "OK", name: receivedPOST.name }
+    }
+    else if(receivedPOST.type=="getImage"){
+      var hasAccess = true
+        // TODO : Comprovar aquí que l'usuari té permisos per accedir al fitxer
+
+      if (hasAccess) {
+    // Llegir l’arxiu que demana l’usuari i tranformar-lo a base64
+        var name = await queryDatabase("SELECT frontImage,backImage FROM User where phone='"+receivedPOST.phone+"';");
+        console.log(name);
+        var base64 = await fs.readFile(`./private/${name[0].frontImage}`, { encoding: 'base64'})
+        var base65 = await fs.readFile(`./private/${name[0].backImage}`, { encoding: 'base64'})
+
+    // Posar-lo com a camp de text en l’objecte que s’envia al client
+        result = { status: "OK", name: name, foto1: base64,foto2: base65 }
+      } else {
+        result = { status: "KO", result: "Acces denied" }
+      }
+
     }
   }
   res.writeHead(200, { 'Content-Type': 'application/json' })
