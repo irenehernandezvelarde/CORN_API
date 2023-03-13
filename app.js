@@ -33,26 +33,30 @@ async function get_profiles (req, res) {
     }
     else if (receivedPOST.type == "get_profile") {
       var resultado=await queryDatabase("SELECT * from User where token='"+receivedPOST.token+"';");
-      result = { status: "OK", result: resultado,token:receivedPOST.token}
+      result = { status: "OK", result: resultado}
+    }
+    else if (receivedPOST.type == "get_profile_desktop") {
+      var resultado=await queryDatabase("SELECT * from User where phone='"+receivedPOST.phone+"';");
+      result = { status: "OK", result: resultado}
     }
     else if (receivedPOST.type == "get_transactions") {
       var transaction=await queryDatabase("SELECT * from Transactions where destiny='"+receivedPOST.phone+"' OR origin='"+receivedPOST.phone+"';");
       result = { status: "OK", transactions:transaction}
     }
+    else if (receivedPOST.type == "get_transactions_app") {
+      var phone = await queryDatabase("SELECT phone from User where token='"+receivedPOST.token+"';");
+      var transaction=await queryDatabase("SELECT * from Transactions where destiny='"+phone[0].phone+"' OR origin='"+phone[0].phone+"';");
+      result = { status: "OK", transactions:transaction}
+    }
     else if(receivedPOST.type == "change_token"){
-      const characters ="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,.;:?¿!<#$%&/()-+*";
-        let token= ' ';
-        const charactersLength = characters.length;
-        for ( let i = 0; i < 30; i++ ) {
-            token += characters.charAt(Math.floor(Math.random() * charactersLength));
-        }
-        await queryDatabase("UPDATE User SET token='"+token+"' WHERE phone='"+receivedPOST.phone+"';");
-        var resultado=await queryDatabase("SELECT * from User WHERE phone='"+receivedPOST.phone+"';");
-        result={status: "OK",result:resultado,newToken:token}
+      
+        await queryDatabase("UPDATE User SET token='' WHERE token='"+receivedPOST.token+"';");
+        var resultado=await queryDatabase("SELECT * from User WHERE phone='"+receivedPOST.token+"';");
+        result={status: "OK",result:resultado}
     }
     else if (receivedPOST.type == "setup_payment") {
-      if(receivedPOST.id_destiny.length==0){
-        result = {status:"ERROR",message:"user_id is required"}
+      if(receivedPOST.token.length==0){
+        result = {status:"ERROR",message:"token is required"}
       }
       else if(receivedPOST.quantity<0){
         result = {status:"ERROR",message:"Wrong amount"}
@@ -79,8 +83,9 @@ async function get_profiles (req, res) {
         } 
         var horesMinuts=today.getHours()+":"+today.getMinutes()+":"+today.getSeconds()
         today = mm+'/'+dd+'/'+yyyy+" "+horesMinuts;
+        var id_destiny = await queryDatabase("SELECT phone FROM User WHERE token='"+receivedPOST.token+"';");
         await queryDatabase("INSERT INTO Transactions(destiny,quantity,token,accepted,TimeSetup) "+
-          "values('"+receivedPOST.id_destiny+"',"+
+          "values('"+id_destiny[0].phone+"',"+
           receivedPOST.quantity+","+
           "'"+token+"',"+
           "false, STR_TO_DATE('"+today+"','%m/%d/%Y %H:%i:%s'));"
@@ -90,7 +95,7 @@ async function get_profiles (req, res) {
         result={status:"OK",result:resultado}
       }
     }
-    else if(receivedPOST.type == "sync"){
+    /*else if(receivedPOST.type == "sync"){
       console.log("SYNQUING")
       var existingPhone=await queryDatabase("SELECT phone from User where phone='"+receivedPOST.phone+"';");
         if(existingPhone[0]!=null){
@@ -104,7 +109,7 @@ async function get_profiles (req, res) {
           var resultado=await queryDatabase("SELECT * from User WHERE phone='"+receivedPOST.phone+"';");
           console.log(resultado)
           result={status: "OK",result:resultado,message:"created"}
-        }}
+        }}*/
     else if(receivedPOST.type == "login"){
       const characters ="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,.;:?¿!<#$%&/()-+*";
         let token= ' ';
@@ -171,8 +176,11 @@ async function get_profiles (req, res) {
     }
     else if(receivedPOST.type == "finish_payment"){
       await queryDatabase("SET autocommit=0;") 
+      var origin_id = await queryDatabase("select phone from User where token='"+receivedPOST.token+"';")
+      console.log(origin_id[0].phone);
       var cuenta = await queryDatabase("select count(*) from Transactions where token='"+receivedPOST.transactionToken+"';")
-      var dinero = await queryDatabase("SELECT balance FROM User WHERE phone='"+receivedPOST.origin_id+";'");
+      var dinero = await queryDatabase("SELECT balance FROM User WHERE phone='"+origin_id[0].phone+"';");
+      console.log(dinero);
       if(receivedPOST.transactionToken.length==0){
         result = {status:"ERROR",message:"Error token buit"}
       }
@@ -201,9 +209,10 @@ async function get_profiles (req, res) {
         today = mm+'/'+dd+'/'+yyyy+" "+horesMinuts;
           if(receivedPOST.accepted=="true"){
             try{
-              await queryDatabase("UPDATE Transactions SET accepted=true, origin='"+receivedPOST.origin_id+"', TimeAccept=STR_TO_DATE('"+today+"','%m/%d/%Y %H:%i:%s') WHERE token='"+receivedPOST.transactionToken+"';");
-              await queryDatabase("UPDATE User SET balance=balance-"+receivedPOST.quantity+" WHERE phone='"+receivedPOST.origin_id+"';");
+              await queryDatabase("UPDATE Transactions SET accepted=true, origin='"+origin_id[0].phone+"', TimeAccept=STR_TO_DATE('"+today+"','%m/%d/%Y %H:%i:%s') WHERE token='"+receivedPOST.transactionToken+"';");
+              await queryDatabase("UPDATE User SET balance=balance-"+receivedPOST.quantity+" WHERE phone='"+origin_id[0].phone+"';");
               destino = await queryDatabase("select destiny from Transactions where token='"+receivedPOST.transactionToken+"';")
+              console.log(destino);
               await queryDatabase("UPDATE User SET balance=balance+"+receivedPOST.quantity+" WHERE phone='"+destino[0].destiny+"';")
               await queryDatabase("commit;")
             }
@@ -213,129 +222,133 @@ async function get_profiles (req, res) {
             var response="Acceptada"
           }
           else{
-            await queryDatabase("UPDATE Transactions SET accepted=false, origin='"+receivedPOST.origin_id+"',TimeAccept=STR_TO_DATE('"+today+"','%m/%d/%Y %H:%i:%s') WHERE token='"+receivedPOST.transactionToken+"';");
+            await queryDatabase("UPDATE Transactions SET accepted=false, origin='"+origin_id[0].phone+"',TimeAccept=STR_TO_DATE('"+today+"','%m/%d/%Y %H:%i:%s') WHERE token='"+receivedPOST.transactionToken+"';");
             var response="Refusada"
           }
+          console.log(destino);
           var resultado = await queryDatabase("select * from Transactions where token='"+receivedPOST.transactionToken+"';")
           await queryDatabase("SET autocommit=1;") 
           result={status:"OK",response:response}
         }
       }
+    else if(receivedPOST.type=="filtrar"){
+      if(receivedPOST.tipusFiltre=="estat"){
+        var resultado=await queryDatabase("SELECT * from User where state='"+receivedPOST.filtre+"';");
+        result = { status: "OK", result: resultado}
+      }
+      else if(receivedPOST.tipusFiltre=="saldos"){
+          var resultado=await queryDatabase("SELECT * from User where balance>="+receivedPOST.min+" AND balance <= "+receivedPOST.max+";");
+          result = { status: "OK", result: resultado}
+      }
+      else if(receivedPOST.tipusFiltre=="nTransaccions"){
+          var query1 = await queryDatabase("SELECT phone FROM User;");
+          const saveUsers=[];
+          for (var i=0; i< query1.length; i++){
+            console.log(query1[i].phone);
+            var query2 = await queryDatabase("SELECT count(*) as count FROM Transactions where origin='"+query1[i].phone+"' GROUP BY origin;");
+            var query3 = await queryDatabase("SELECT count(*) as count FROM Transactions where destiny='"+query1[i].phone+"' GROUP BY destiny;");
+            console.log(query2);
+            if(query2[0]!=null && query3[0]!=null){
+              if((query2[0].count+query3[0].count)>=receivedPOST.min&&(query2[0].count+query3[0].count)<=receivedPOST.max){
+                saveUsers.push(query1[i].phone)
+              }
+            }
+            else if(query2[0]!=null&& query3[0]==null){
+              if((query2[0].count)>=receivedPOST.min&&(query2[0].count)<=receivedPOST.max){
+                saveUsers.push(query1[i].phone)
+              }
+            }
+            else if(query2[0]==null&& query3[0]!=null){
+              if((query3[0].count)>=receivedPOST.min&&(query3[0].count)<=receivedPOST.max){
+                saveUsers.push(query1[i].phone)
+              }
+            }
+            else if(query2[0]==null&& query3[0]==null){
+              if(0>=receivedPOST.min&&0<=receivedPOST.max){
+                saveUsers.push(query1[i].phone)
+              }
+            }
+            console.log(saveUsers);
+          }
+          var resultado= await queryDatabase("SELECT * FROM User WHERE phone in ("+saveUsers+");");
+          result = { status: "OK", result: resultado}
+      }
+    }
+    else if(receivedPOST.type=="send_id"){
+      // Rebre el camp String amb dades binaries del client
+      console.log("Entra ");
+      const fileBuffer = Buffer.from(receivedPOST.photo, 'base64');
+      //const fileBuffer2 = Buffer.from(receivedPOST.photo2, 'base64');
+      if(receivedPOST.foto=="front"){
+        await queryDatabase("UPDATE User SET frontImage = '"+receivedPOST.name+"' WHERE token= '"+receivedPOST.token+"';");
+      }
+      if(receivedPOST.foto=="back"){
+        await queryDatabase("UPDATE User SET backImage = '"+receivedPOST.name+"' WHERE token= '"+receivedPOST.token+"';");
+      }
+      // Guardar les dades binaries en un arxiu (a la carpeta ‘private’ amb el nom original)
+      const path = "./private"
+      await fs.mkdir(path, { recursive: true }) // Crea el directori si no existeix
+      await fs.writeFile(`${path}/${receivedPOST.name}`, fileBuffer)
+      var files = await fs.readdir("./private")
+      console.log(files);
+      // Informar que tot ha anat bé
+      await wait(1500)
+      result = { status: "OK", name: receivedPOST.name }
+    }
+    else if(receivedPOST.type=="getImage"){
+      var hasAccess = true
+        // TODO : Comprovar aquí que l'usuari té permisos per accedir al fitxer
+
+      if (hasAccess) {
+    // Llegir l’arxiu que demana l’usuari i tranformar-lo a base64
+        var name = await queryDatabase("SELECT frontImage,backImage FROM User where phone='"+receivedPOST.phone+"';");
+        console.log(name);
+        var base64 = "null"
+        var base65 = "null"
+        if(name[0].frontImage!=null){
+          base64 = await fs.readFile(`./private/${name[0].frontImage}`, { encoding: 'base64'})
+        }
+        if(name[0].backImage!=null){
+          base65 = await fs.readFile(`./private/${name[0].backImage}`, { encoding: 'base64'})
+        }
+        // Posar-lo com a camp de text en l’objecte que s’envia al client
+        result = { status: "OK", name: name, foto1: base64,foto2: base65 }
+      } else {
+        result = { status: "KO", result: "Acces denied" }
+      }
+
+    }
+    else if(receivedPOST.type=="modifyState"){
+      if(receivedPOST.state=="Acceptat"){
+        await queryDatabase("UPDATE User SET state='Acceptat' WHERE phone='"+receivedPOST.phone+"';");
+        result={status: "OK",result:"Changed_state"}
+      }
+      else if(receivedPOST.state=="Rebutjat"){
+        await queryDatabase("UPDATE User SET state='Rebutjat' WHERE phone='"+receivedPOST.phone+"';");
+        result={status: "OK",result:"Changed_state"}
+      }
+      else if(receivedPOST.state=="No_verificat"){
+        await queryDatabase("UPDATE User SET state='No_verificat' WHERE phone='"+receivedPOST.phone+"';");
+        result={status: "OK",result:"Changed_state"}
+      }
+      else if(receivedPOST.state=="Per_verificar"){
+        await queryDatabase("UPDATE User SET state='Per_verificar' WHERE phone='"+receivedPOST.phone+"';");
+        result={status: "OK",result:"Changed_state"}
+      }
+      else{
+        result={status: "ERROR",result:"Invalid state"}
+      }
+    }
   }
   res.writeHead(200, { 'Content-Type': 'application/json' })
   res.end(JSON.stringify(result))
 }
-  async function sincronitzar(phone,name,surname,email){
-      var existingPhone=await queryDatabase("SELECT phone from User where phone='"+phone+"';");
-        if(existingPhone[0]!=null){
-          var resultado=await queryDatabase("SELECT * from User WHERE phone='"+phone+"';");
-          result={status: "OK",result:resultado}
-        }
-        else{
-          await queryDatabase("INSERT INTO User(phone,name,surname,email) VALUES('"+
-          phone+"','"+name+"','"+surname+"','"+email+"');");
-          var resultado=await queryDatabase("SELECT * from User WHERE phone='"+phone+"';");
-          result={status: "OK",result:resultado}
-        }
-        return result
-      }
-  async function setup_payment (id_destiny, quantity) {
-    console.log(id_destiny);
-    if(id_destiny.length==0){
-      result = {status:"ERROR",message:"user_id is required"}
-    }
-    else if(quantity<0){
-      result = {status:"ERROR",message:"Wrong amount"}
-    }
-    else{
-      const characters ='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-      let token= ' ';
-      const charactersLength = characters.length;
-      for ( let i = 0; i < 200; i++ ) {
-          token += characters.charAt(Math.floor(Math.random() * charactersLength));
-      }
-      var today = new Date();
-      var dd = today.getDate();
-      var mm = today.getMonth()+1; 
-      var yyyy = today.getFullYear();
-      if(dd<10) 
-      {
-          dd='0'+dd;
-      } 
 
-      if(mm<10) 
-      {
-          mm='0'+mm;
-      } 
-      var horesMinuts=today.getHours()+":"+today.getMinutes()+":"+today.getSeconds()
-      today = mm+'/'+dd+'/'+yyyy+" "+horesMinuts;
-      await queryDatabase("INSERT INTO Transactions(destiny,quantity,token,accepted,TimeSetup) "+
-      "values('"+id_destiny+"',"+
-      quantity+","+
-      "'"+token+"',"+
-      "false, STR_TO_DATE('"+today+"','%m/%d/%Y %H:%i:%s'));"
-      );
-      var resultado = await(queryDatabase("select token from Transactions where token='"+token+"';"))
-      result={status:"OK",response:resultado}
-      console.log(resultado);
-      result={status:"OK",response:resultado}
-      return result
-    }
-  }
-  async function start_payment () {
-    var cuenta = await(queryDatabase("select count(*) from Transactions where token='"+receivedPOST.transactionToken+"';"))
-    if(receivedPOST.transactionToken.length==0){
-      result = {status:"ERROR",message:"Error token buit"}
-    }
-    else if(cuenta>1){
-      result = {status:"ERROR",message:"Transaccio repetida"}
-    }
-    else{
-      var resultado = await(queryDatabase("select * from Transactions where token='"+receivedPOST.token+"';"))
-      result={status:"OK",message:"Transaccio realtzada correctament",transaction_type:"pagament",amount:receivedPOST.quantity,result:resultado}
-    }
-  }
-  async function finish_payment (transactionToken, accepted) {
-    var cuenta = await(queryDatabase("select count(*) from Transactions where token='"+transactionToken+"';"))
-    if(transactionToken.length==0){
-      result = {status:"ERROR",message:"Error token buit"}
-    }
-    else if(cuenta>1){
-      result = {status:"ERROR",message:"Transaccio repetida"}
-    }
-    else{
-      var today = new Date();
-      var dd = today.getDate();
-      var mm = today.getMonth()+1; 
-      var yyyy = today.getFullYear();
-      if(dd<10) 
-      {
-          dd='0'+dd;
-      } 
-
-      if(mm<10) 
-      {
-          mm='0'+mm;
-      } 
-      var horesMinuts=today.getHours()+":"+today.getMinutes()
-      today = mm+'/'+dd+'/'+yyyy+" "+horesMinuts;
-      if(accepted=="true"){
-        await queryDatabase("UPDATE Transactions SET accepted=true TimeAccept='"+today+"' WHERE token='"+transactionToken+"';");
-        var response="Acceptada"
-      }
-      else{
-        await queryDatabase("UPDATE Transactions SET accepted=false TimeAccept='"+today+"' WHERE token='"+transactionToken+"';");
-        var response="Refusada"
-      }
-      var resultado = await(queryDatabase("select * from Transactions where token='"+transactionToken+"';"))
-      result={status:"OK",transaction_type:"pagament",amount:quantity,response:response}
-    }
-  }
 
 
 // Run WebSocket server
 const WebSocket = require('ws')
-const { response } = require('express')
+const { response, query } = require('express')
 const wss = new WebSocket.Server({ server: httpServer })
 const socketsClients = new Map()
 console.log(`Listening for WebSocket queries on ${port}`)
@@ -421,10 +434,10 @@ function queryDatabase (query) {
 
   return new Promise((resolve, reject) => {
     var connection = mysql.createConnection({
-      host: process.env.MYSQLHOST || "containers-us-west-159.railway.app",
-      port: process.env.MYSQLPORT || 7373,
+      host: process.env.MYSQLHOST || "containers-us-west-81.railway.app",
+      port: process.env.MYSQLPORT || 6542,
       user: process.env.MYSQLUSER || "root",
-      password: process.env.MYSQLPASSWORD || "DJUXedYX6zgXbDnYciHu",
+      password: process.env.MYSQLPASSWORD || "ZvP6TkYB4xZHY31vcYxp",
       database: process.env.MYSQLDATABASE || "railway"
     });
 
