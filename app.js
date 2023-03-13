@@ -319,20 +319,35 @@ async function get_profiles (req, res) {
 
     }
     else if(receivedPOST.type=="modifyState"){
+      var today = new Date();
+        var dd = today.getDate();
+        var mm = today.getMonth()+1; 
+        var yyyy = today.getFullYear();
+        if(dd<10) 
+        {
+            dd='0'+dd;
+        } 
+  
+        if(mm<10) 
+        {
+            mm='0'+mm;
+        } 
+        var horesMinuts=today.getHours()+":"+today.getMinutes()+":"+today.getSeconds()
+        today = mm+'/'+dd+'/'+yyyy+" "+horesMinuts;
       if(receivedPOST.state=="Acceptat"){
-        await queryDatabase("UPDATE User SET state='Acceptat' WHERE phone='"+receivedPOST.phone+"';");
+        await queryDatabase("UPDATE User SET state='Acceptat', lastChange=STR_TO_DATE('"+today+"','%m/%d/%Y %H:%i:%s') WHERE phone='"+receivedPOST.phone+"';");
         result={status: "OK",result:"Changed_state"}
       }
       else if(receivedPOST.state=="Rebutjat"){
-        await queryDatabase("UPDATE User SET state='Rebutjat' WHERE phone='"+receivedPOST.phone+"';");
+        await queryDatabase("UPDATE User SET state='Rebutjat', lastChange=STR_TO_DATE('"+today+"','%m/%d/%Y %H:%i:%s') WHERE phone='"+receivedPOST.phone+"';");
         result={status: "OK",result:"Changed_state"}
       }
       else if(receivedPOST.state=="No_verificat"){
-        await queryDatabase("UPDATE User SET state='No_verificat' WHERE phone='"+receivedPOST.phone+"';");
+        await queryDatabase("UPDATE User SET state='No_verificat', lastChange=STR_TO_DATE('"+today+"','%m/%d/%Y %H:%i:%s') WHERE phone='"+receivedPOST.phone+"';");
         result={status: "OK",result:"Changed_state"}
       }
       else if(receivedPOST.state=="Per_verificar"){
-        await queryDatabase("UPDATE User SET state='Per_verificar' WHERE phone='"+receivedPOST.phone+"';");
+        await queryDatabase("UPDATE User SET state='Per_verificar', lastChange=STR_TO_DATE('"+today+"','%m/%d/%Y %H:%i:%s') WHERE phone='"+receivedPOST.phone+"';");
         result={status: "OK",result:"Changed_state"}
       }
       else{
