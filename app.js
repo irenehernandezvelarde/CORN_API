@@ -33,10 +33,19 @@ async function get_profiles (req, res) {
     }
     else if (receivedPOST.type == "get_profile") {
       var resultado=await queryDatabase("SELECT * from User where token='"+receivedPOST.token+"';");
-      result = { status: "OK", result: resultado,token:receivedPOST.token}
+      result = { status: "OK", result: resultado}
+    }
+    else if (receivedPOST.type == "get_profile_desktop") {
+      var resultado=await queryDatabase("SELECT * from User where phone='"+receivedPOST.phone+"';");
+      result = { status: "OK", result: resultado}
     }
     else if (receivedPOST.type == "get_transactions") {
       var transaction=await queryDatabase("SELECT * from Transactions where destiny='"+receivedPOST.phone+"' OR origin='"+receivedPOST.phone+"';");
+      result = { status: "OK", transactions:transaction}
+    }
+    else if (receivedPOST.type == "get_transactions_app") {
+      var phone = await queryDatabase("SELECT phone from User where token='"+receivedPOST.token+"';");
+      var transaction=await queryDatabase("SELECT * from Transactions where destiny='"+phone[0].phone+"' OR origin='"+phone[0].phone+"';");
       result = { status: "OK", transactions:transaction}
     }
     else if(receivedPOST.type == "change_token"){
@@ -294,126 +303,47 @@ async function get_profiles (req, res) {
     // Llegir l’arxiu que demana l’usuari i tranformar-lo a base64
         var name = await queryDatabase("SELECT frontImage,backImage FROM User where phone='"+receivedPOST.phone+"';");
         console.log(name);
-        var base64 = await fs.readFile(`./private/${name[0].frontImage}`, { encoding: 'base64'})
-        var base65 = await fs.readFile(`./private/${name[0].backImage}`, { encoding: 'base64'})
-
-    // Posar-lo com a camp de text en l’objecte que s’envia al client
+        var base64 = "null"
+        var base65 = "null"
+        if(name[0].frontImage!=null){
+          base64 = await fs.readFile(`./private/${name[0].frontImage}`, { encoding: 'base64'})
+        }
+        if(name[0].backImage!=null){
+          base65 = await fs.readFile(`./private/${name[0].backImage}`, { encoding: 'base64'})
+        }
+        // Posar-lo com a camp de text en l’objecte que s’envia al client
         result = { status: "OK", name: name, foto1: base64,foto2: base65 }
       } else {
         result = { status: "KO", result: "Acces denied" }
       }
 
     }
+    else if(receivedPOST.type=="modifyState"){
+      if(receivedPOST.state=="Acceptat"){
+        await queryDatabase("UPDATE User SET state='Acceptat' WHERE phone='"+receivedPOST.phone+"';");
+        result={status: "OK",result:"Changed_state"}
+      }
+      else if(receivedPOST.state=="Rebutjat"){
+        await queryDatabase("UPDATE User SET state='Rebutjat' WHERE phone='"+receivedPOST.phone+"';");
+        result={status: "OK",result:"Changed_state"}
+      }
+      else if(receivedPOST.state=="No_verificat"){
+        await queryDatabase("UPDATE User SET state='No_verificat' WHERE phone='"+receivedPOST.phone+"';");
+        result={status: "OK",result:"Changed_state"}
+      }
+      else if(receivedPOST.state=="Per_verificar"){
+        await queryDatabase("UPDATE User SET state='Per_verificar' WHERE phone='"+receivedPOST.phone+"';");
+        result={status: "OK",result:"Changed_state"}
+      }
+      else{
+        result={status: "ERROR",result:"Invalid state"}
+      }
+    }
   }
   res.writeHead(200, { 'Content-Type': 'application/json' })
   res.end(JSON.stringify(result))
 }
-  async function sincronitzar(phone,name,surname,email){
-      var existingPhone=await queryDatabase("SELECT phone from User where phone='"+phone+"';");
-        if(existingPhone[0]!=null){
-          var resultado=await queryDatabase("SELECT * from User WHERE phone='"+phone+"';");
-          result={status: "OK",result:resultado}
-        }
-        else{
-          await queryDatabase("INSERT INTO User(phone,name,surname,email) VALUES('"+
-          phone+"','"+name+"','"+surname+"','"+email+"');");
-          var resultado=await queryDatabase("SELECT * from User WHERE phone='"+phone+"';");
-          result={status: "OK",result:resultado}
-        }
-        return result
-      }
-  async function setup_payment (id_destiny, quantity) {
-    console.log(id_destiny);
-    if(id_destiny.length==0){
-      result = {status:"ERROR",message:"user_id is required"}
-    }
-    else if(quantity<0){
-      result = {status:"ERROR",message:"Wrong amount"}
-    }
-    else{
-      const characters ='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-      let token= ' ';
-      const charactersLength = characters.length;
-      for ( let i = 0; i < 200; i++ ) {
-          token += characters.charAt(Math.floor(Math.random() * charactersLength));
-      }
-      var today = new Date();
-      var dd = today.getDate();
-      var mm = today.getMonth()+1; 
-      var yyyy = today.getFullYear();
-      if(dd<10) 
-      {
-          dd='0'+dd;
-      } 
 
-      if(mm<10) 
-      {
-          mm='0'+mm;
-      } 
-      var horesMinuts=today.getHours()+":"+today.getMinutes()+":"+today.getSeconds()
-      today = mm+'/'+dd+'/'+yyyy+" "+horesMinuts;
-      await queryDatabase("INSERT INTO Transactions(destiny,quantity,token,accepted,TimeSetup) "+
-      "values('"+id_destiny+"',"+
-      quantity+","+
-      "'"+token+"',"+
-      "false, STR_TO_DATE('"+today+"','%m/%d/%Y %H:%i:%s'));"
-      );
-      var resultado = await(queryDatabase("select token from Transactions where token='"+token+"';"))
-      result={status:"OK",response:resultado}
-      console.log(resultado);
-      result={status:"OK",response:resultado}
-      return result
-    }
-  }
-  async function start_payment () {
-    var cuenta = await(queryDatabase("select count(*) from Transactions where token='"+receivedPOST.transactionToken+"';"))
-    if(receivedPOST.transactionToken.length==0){
-      result = {status:"ERROR",message:"Error token buit"}
-    }
-    else if(cuenta>1){
-      result = {status:"ERROR",message:"Transaccio repetida"}
-    }
-    else{
-      var resultado = await(queryDatabase("select * from Transactions where token='"+receivedPOST.token+"';"))
-      result={status:"OK",message:"Transaccio realtzada correctament",transaction_type:"pagament",amount:receivedPOST.quantity,result:resultado}
-    }
-  }
-  async function finish_payment (transactionToken, accepted) {
-    var cuenta = await(queryDatabase("select count(*) from Transactions where token='"+transactionToken+"';"))
-    if(transactionToken.length==0){
-      result = {status:"ERROR",message:"Error token buit"}
-    }
-    else if(cuenta>1){
-      result = {status:"ERROR",message:"Transaccio repetida"}
-    }
-    else{
-      var today = new Date();
-      var dd = today.getDate();
-      var mm = today.getMonth()+1; 
-      var yyyy = today.getFullYear();
-      if(dd<10) 
-      {
-          dd='0'+dd;
-      } 
-
-      if(mm<10) 
-      {
-          mm='0'+mm;
-      } 
-      var horesMinuts=today.getHours()+":"+today.getMinutes()
-      today = mm+'/'+dd+'/'+yyyy+" "+horesMinuts;
-      if(accepted=="true"){
-        await queryDatabase("UPDATE Transactions SET accepted=true TimeAccept='"+today+"' WHERE token='"+transactionToken+"';");
-        var response="Acceptada"
-      }
-      else{
-        await queryDatabase("UPDATE Transactions SET accepted=false TimeAccept='"+today+"' WHERE token='"+transactionToken+"';");
-        var response="Refusada"
-      }
-      var resultado = await(queryDatabase("select * from Transactions where token='"+transactionToken+"';"))
-      result={status:"OK",transaction_type:"pagament",amount:quantity,response:response}
-    }
-  }
 
 
 // Run WebSocket server
@@ -504,10 +434,10 @@ function queryDatabase (query) {
 
   return new Promise((resolve, reject) => {
     var connection = mysql.createConnection({
-      host: process.env.MYSQLHOST || "containers-us-west-151.railway.app",
-      port: process.env.MYSQLPORT || 6244,
+      host: process.env.MYSQLHOST || "containers-us-west-81.railway.app",
+      port: process.env.MYSQLPORT || 6542,
       user: process.env.MYSQLUSER || "root",
-      password: process.env.MYSQLPASSWORD || "Ubvw7f4IpTgDklb5ZZe8",
+      password: process.env.MYSQLPASSWORD || "ZvP6TkYB4xZHY31vcYxp",
       database: process.env.MYSQLDATABASE || "railway"
     });
 
